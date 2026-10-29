@@ -11,7 +11,7 @@ SwipeWise is a private card wallet: it shows which of the user's existing credit
 purchase and reminds them before perks, bonuses, points, or payments slip. **It never moves money
 and never stores full card numbers.**
 
-> **Status: v0.2 (Oct 28, 2026).** Stack, workflow, testing, and security rules are set. Pending:
+> **Status: v0.3 (Oct 28, 2026).** Stack, workflow, testing, and security rules are set. Pending:
 > `DESIGN.md` + mockup in `docs/design/`, and the final `docs/PRD.md`. Update this note when they land.
 
 **Source of truth:** the security and money rules here always win. Then: the GitHub issue →
@@ -103,8 +103,7 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
   booleans start with `is/has/can/should`.
 - Prisma models singular `PascalCase`, tables `snake_case` via `@@map`; API paths plural kebab-case.
 - Use the PRD's words (wallet card, rewards program, reward rule, perk, bonus offer, rotating
-  category, store alias). No synonyms.
-- Every `TODO` references an issue: `// TODO(#23): …`.
+  category, store alias). Every `TODO` references an issue: `// TODO(#23): …`.
 
 ## 8. Testing
 <!-- Why: P2 grades failing tests committed first. Story IDs in test names show where each test came from. -->
@@ -112,10 +111,8 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - Unit: everything in `domain/`, at **90% line and branch coverage**, enforced in the Vitest config.
 - Integration: every endpoint, including auth and ownership, against a test database
   (`DATABASE_URL_TEST`).
-- E2E (Playwright): one spec per core user flow in the PRD.
-- Error paths are tested: empty input, bad input, database down.
-- Names map to stories and ACs: `describe('rankCards (US-03)')`, `it('AC2: splits a purchase that crosses the cap')`.
-- Fixed clock and named factories. No `Date.now()` or random data in tests.
+- E2E (Playwright): one spec per core PRD flow. Error paths tested: empty input, bad input, database down.
+- Names map to stories and ACs (`describe('rankCards (US-03)')`, `it('AC2: …')`). Fixed clock and named factories; no `Date.now()` or random data.
 
 ## 9. Design
 <!-- Why: design rules live in one place, so the agent never invents or reuses outdated colors. -->
@@ -147,13 +144,14 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - `.github/workflows/ci.yml` runs on every PR: lint + format → unit + integration → build → E2E,
   plus a security scan (`npm audit`, CodeQL).
 - The pre-commit hook (Husky + lint-staged) runs lint and format locally.
-- CI never uses production secrets; tests hit a local or test database.
-- Never disable a test, lower a coverage threshold, or add `@ts-ignore` to get CI green.
+- CI never uses production secrets. Never disable a test, lower coverage, or add `@ts-ignore` to get green.
 
 ## 12. Security
 <!-- Why: SwipeWise handles financial data. These map to the PRD's security requirements. -->
 - argon2id passwords; JWT in an httpOnly, Secure, SameSite=Lax cookie; `helmet`; CORS allowlist;
   rate limits on `/api/v1/auth/*`; one generic message for wrong email or password.
+- Account rules (US-01): passwords are at least 8 characters with at least one number; emails are
+  unique, compared case-insensitively; registering an existing email returns 409 with a clear message.
 - **Card-number guard:** every free-text field uses the shared `noCardNumber` Zod refinement (reject
   13–19 digit runs that pass a Luhn check). Log the field name only, never the value.
 - Never ask for, store, or log card numbers, CVVs, expiration dates, statement balances, or bank details.
@@ -172,9 +170,11 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 
 ## 14. Ask first
 <!-- Why: some decisions belong to us, not the agent. -->
-Hosting, the job scheduler, and deploy previews · any dependency not in `docs/dependencies.md` ·
-schema changes beyond the issue · changes to this file, `DESIGN.md`, or the PRD · anything near a
-non-goal.
+- Hosting, the job scheduler, and deploy previews
+- Any dependency not in `docs/dependencies.md`
+- Schema changes beyond the issue
+- Changes to this file, `DESIGN.md`, or the PRD
+- Anything near a non-goal
 
 ## 15. Where docs live
 | What | Where |
@@ -195,3 +195,4 @@ non-goal.
 |---|---|---|---|
 | v0.1 | 2026-10-28 | First draft from the idea doc | — |
 | v0.2 | 2026-10-28 | Cut to under 200 lines and moved details to `docs/`; synced with PRD non-goals; story IDs instead of section numbers; UI points to `DESIGN.md`; paths match the lecture layout; added role rotation, `CLAUDE.md`, CI-green merges, and Husky | v0.1 was ~450 lines, referenced features the PRD dropped and colors we rejected, so the agent could have built the wrong things |
+| v0.3 | 2026-10-28 | Added account rules (US-01); "Ask first" as a list; created `CLAUDE.md` and every linked `docs/` file | Pre-Run B review: missing linked files would make the agent stop and ask, and rules not written down can't be followed |
