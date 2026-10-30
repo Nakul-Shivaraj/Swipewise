@@ -29,15 +29,18 @@ SET cents_per_100_points = EXCLUDED.cents_per_100_points, updated_at = NOW();
   statements.push('-- Seed Cards');
   const cardValues = DEMO_CARDS.map(
     (c) =>
-      `(gen_random_uuid(), '${escapeSql(c.name)}', (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`
+      `(gen_random_uuid(), '${escapeSql(c.name)}', '${escapeSql(c.issuer)}', '${escapeSql(c.artColor)}', ${c.isDemo}, (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`
   ).join(',\n  ');
 
   statements.push(`
-INSERT INTO cards (id, name, program_id, annual_fee_cents, base_rate_x100, is_retired, created_at, updated_at)
+INSERT INTO cards (id, name, issuer, art_color, is_demo, program_id, annual_fee_cents, base_rate_x100, is_retired, created_at, updated_at)
 VALUES
   ${cardValues}
 ON CONFLICT (name) DO UPDATE
 SET
+  issuer = EXCLUDED.issuer,
+  art_color = EXCLUDED.art_color,
+  is_demo = EXCLUDED.is_demo,
   program_id = EXCLUDED.program_id,
   annual_fee_cents = EXCLUDED.annual_fee_cents,
   base_rate_x100 = EXCLUDED.base_rate_x100,

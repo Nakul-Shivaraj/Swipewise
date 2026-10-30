@@ -40,6 +40,9 @@ model RewardsProgram {
 model Card {
   id             String         @id @default(uuid())
   name           String         @unique
+  issuer         String
+  artColor       String         @map("art_color")
+  isDemo         Boolean        @default(true) @map("is_demo")
   programId      String         @map("program_id")
   program        RewardsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
   annualFeeCents Int            @default(0) @map("annual_fee_cents")

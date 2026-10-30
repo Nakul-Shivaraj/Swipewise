@@ -13,6 +13,9 @@ export interface SeedRewardRule {
 
 export interface SeedCard {
   name: string;
+  issuer: string;
+  artColor: string;
+  isDemo: boolean;
   programName: string;
   annualFeeCents: number;
   baseRateX100: number;
@@ -39,6 +42,9 @@ export const DEMO_PROGRAMS: SeedRewardsProgram[] = [
 export const DEMO_CARDS: SeedCard[] = [
   {
     name: 'Mint Everyday',
+    issuer: 'Demo Bank',
+    artColor: '#2F8C55',
+    isDemo: true,
     programName: 'Cash Back',
     annualFeeCents: 0,
     baseRateX100: 100, // 1% base
@@ -55,6 +61,9 @@ export const DEMO_CARDS: SeedCard[] = [
   },
   {
     name: 'Harbor Travel Plus',
+    issuer: 'Demo Bank',
+    artColor: '#2F74D0',
+    isDemo: true,
     programName: 'Harbor Points',
     annualFeeCents: 9500, // $95 annual fee
     baseRateX100: 100, // 1x base
@@ -67,6 +76,9 @@ export const DEMO_CARDS: SeedCard[] = [
   },
   {
     name: 'Basic Flat',
+    issuer: 'Demo Bank',
+    artColor: '#958C7B',
+    isDemo: true,
     programName: 'Cash Back',
     annualFeeCents: 0, // $0 fee
     baseRateX100: 150, // 1.5% base
