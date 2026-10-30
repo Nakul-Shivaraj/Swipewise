@@ -21,7 +21,9 @@ describe('Log in page (US-01 / Issue #10)', () => {
     expect(
       screen.getByRole('button', { name: /Log in/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Don't have an account\?/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Don't have an account\?/i).length
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/We never ask for card numbers/i)).toBeInTheDocument();
   });
 

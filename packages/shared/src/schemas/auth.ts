@@ -30,3 +30,11 @@ export const signupRequestSchema = z
   });
 
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
+
+
+export const loginRequestSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address.'),
+  password: z.string().min(1, 'Enter your password.'),
+});
+
+export type LoginRequest = z.infer<typeof loginRequestSchema>;

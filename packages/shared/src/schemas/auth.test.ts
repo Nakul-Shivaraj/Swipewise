@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signupRequestSchema } from './auth.js';
+import { signupRequestSchema, loginRequestSchema } from './auth.js';
 import { calculatePasswordStrength } from '../utils/password-strength.js';
 import { isCardNumber } from '../utils/luhn.js';
 
@@ -112,9 +112,7 @@ describe('Sign up validation schemas (US-01)', () => {
 
 
 describe('Log in validation schema (US-01 / Issue #10)', () => {
-  it('AC2: accepts valid login inputs', async () => {
-    // @ts-expect-error loginRequestSchema will be exported
-    const { loginRequestSchema } = await import('./auth.js');
+  it('AC2: accepts valid login inputs', () => {
     const result = loginRequestSchema.safeParse({
       email: 'user@example.com',
       password: 'Password123',
@@ -122,9 +120,7 @@ describe('Log in validation schema (US-01 / Issue #10)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('AC2: validates email and non-empty password', async () => {
-    // @ts-expect-error loginRequestSchema will be exported
-    const { loginRequestSchema } = await import('./auth.js');
+  it('AC2: validates email and non-empty password', () => {
     const badEmail = loginRequestSchema.safeParse({
       email: 'not-an-email',
       password: 'Password123',

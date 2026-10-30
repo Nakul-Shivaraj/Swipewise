@@ -6,8 +6,8 @@ import { userRepo } from '../repositories/user.repository.js';
 describe('POST /api/v1/auth/signup (US-01)', () => {
   const app = createApp();
 
-  beforeEach(() => {
-    userRepo.clear();
+  beforeEach(async () => {
+    await userRepo.clear();
   });
 
   it('AC1: registers a user with argon2id hashed password and sets httpOnly auth cookie', async () => {
@@ -34,7 +34,7 @@ describe('POST /api/v1/auth/signup (US-01)', () => {
     expect(cookieStr).toMatch(/HttpOnly/i);
 
     // Verify argon2 password in repository
-    const storedUser = userRepo.findByEmail('nakul@example.com');
+    const storedUser = await userRepo.findByEmail('nakul@example.com');
     expect(storedUser).toBeDefined();
     expect(storedUser?.passwordHash).toMatch(/^\$argon2id\$/);
   });

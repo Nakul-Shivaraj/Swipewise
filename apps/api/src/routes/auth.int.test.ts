@@ -6,7 +6,7 @@ import { createPrismaClient } from '../db/client.js';
 
 describe('Auth Integration Tests (US-01 / Issue #10)', () => {
   const prisma = createPrismaClient({ schema: 'test' });
-  const app = createApp({ prisma });
+  const app = createApp({ prisma, schema: 'test', rateLimitMax: 100 });
 
   beforeEach(async () => {
     // Clean up test schema before each test
@@ -191,7 +191,7 @@ describe('Auth Integration Tests (US-01 / Issue #10)', () => {
   });
 
   it('AC5: rate limits auth requests and stores limit counts in Postgres', async () => {
-    const limitedApp = createApp({ prisma, rateLimitMax: 3 });
+    const limitedApp = createApp({ prisma, schema: 'test', rateLimitMax: 3 });
 
     for (let i = 0; i < 3; i++) {
       const res = await request(limitedApp)
