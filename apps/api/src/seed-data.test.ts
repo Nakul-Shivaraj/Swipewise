@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from './seed-data.js';
+import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from './seed-data.ts';
+import { buildSeedSql } from './seed.ts';
 
 describe('Demo Seed Data (Issue #9)', () => {
   it('AC: defines rewards programs with integer centsPer100Points', () => {
@@ -108,5 +109,23 @@ describe('Demo Seed Data (Issue #9)', () => {
     // United Airlines should have aliases
     const united = DEMO_STORES.find((s) => s.name === 'United Airlines');
     expect(united?.aliases.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('AC: buildSeedSql produces valid idempotent SQL statements without a database', () => {
+    const sql = buildSeedSql();
+    expect(sql).toContain('INSERT INTO rewards_programs');
+    expect(sql).toContain('ON CONFLICT (name) DO UPDATE');
+    expect(sql).toContain('INSERT INTO cards');
+    expect(sql).toContain('INSERT INTO reward_rules');
+    expect(sql).toContain('INSERT INTO stores');
+    expect(sql).toContain('INSERT INTO store_aliases');
+    expect(sql).toContain('Mint Everyday');
+    expect(sql).toContain('Harbor Travel Plus');
+    expect(sql).toContain('Basic Flat');
+    expect(sql).toContain('Safeway');
+    expect(sql).toContain('Trader Joe’s');
+    expect(sql).toContain('Chipotle');
+    expect(sql).toContain('Shell');
+    expect(sql).toContain('United Airlines');
   });
 });
