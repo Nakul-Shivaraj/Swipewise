@@ -5,3 +5,104 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+enum Category {
+  GROCERIES
+  DINING
+  GAS
+  TRAVEL
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  name         String
+  timeZone     String       @default("America/Los_Angeles") @map("time_zone")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  walletCards  WalletCard[]
+
+  @@map("users")
+}
+
+model RewardsProgram {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  centsPer100Points Int      @default(100) @map("cents_per_100_points")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  cards             Card[]
+
+  @@map("rewards_programs")
+}
+
+model Card {
+  id             String         @id @default(uuid())
+  name           String         @unique
+  issuer         String
+  artColor       String         @map("art_color")
+  isDemo         Boolean        @default(true) @map("is_demo")
+  programId      String         @map("program_id")
+  program        RewardsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  annualFeeCents Int            @default(0) @map("annual_fee_cents")
+  baseRateX100   Int            @default(100) @map("base_rate_x100")
+  isRetired      Boolean        @default(false) @map("is_retired")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  rewardRules    RewardRule[]
+  walletCards    WalletCard[]
+
+  @@map("cards")
+}
+
+model RewardRule {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  category  Category
+  rateX100  Int      @map("rate_x100")
+  capCents  Int?     @map("cap_cents")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([cardId, category])
+  @@map("reward_rules")
+}
+
+model Store {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  category  Category
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  aliases   StoreAlias[]
+
+  @@map("stores")
+}
+
+model StoreAlias {
+  id        String   @id @default(uuid())
+  storeId   String   @map("store_id")
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  alias     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, alias])
+  @@map("store_aliases")
+}
+
+model WalletCard {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId     String    @map("card_id")
+  card       Card      @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  nickname   String?
+  openedDate DateTime? @db.Date @map("opened_date")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@map("wallet_cards")
+}
