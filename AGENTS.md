@@ -11,11 +11,11 @@ SwipeWise is a private card wallet: it shows which of the user's existing credit
 purchase and reminds them before perks, bonuses, points, or payments slip. **It never moves money
 and never stores full card numbers.**
 
-> **Status: v0.3 (Oct 28, 2026).** Stack, workflow, testing, and security rules are set. Pending:
-> `DESIGN.md` + mockup in `docs/design/`, and the final `docs/PRD.md`. Update this note when they land.
+> **Status: v0.4 (Oct 29, 2026).** Design docs and mockups are in `docs/`. Requirements are the GitHub issues.
 
-**Source of truth:** the security and money rules here always win. Then: the GitHub issue →
-`docs/PRD.md` (stories `US-xx`) → `DESIGN.md` → the rest of this file. If two conflict, stop and ask.
+**Source of truth:** the security and money rules here always win. Then: the GitHub issue and its
+acceptance criteria → `docs/DESIGN.md` and `docs/ui-behavior.md` → the rest of this file.
+If two conflict, stop and ask.
 
 ## 1. How to work
 <!-- Why: left alone, agents build whole features at once and skip tests. -->
@@ -30,10 +30,10 @@ and never stores full card numbers.**
 
 ## 2. Scope
 <!-- Why: the agent extends whatever it sees. Explicit non-goals stop it from building them. -->
-- **Build** only the user stories in `docs/PRD.md`.
+- **Build** only what the GitHub issues describe.
 - **Non-goals — never build, not even partially:** card-data API sync, admin review queues (card
-  data or store suggestions), Plaid or any bank linking, email notifications. If a story seems to
-  need one, stop and ask.
+  data or store suggestions), Plaid or any bank linking, email notifications, social login. If an
+  issue seems to need one, stop and ask.
 
 ## 3. Stack
 <!-- Why: without this the agent guesses a stack. Versions are targets: confirm at scaffold; lockfile wins. -->
@@ -62,7 +62,7 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 | Lint / format / types | `npm run lint` / `npm run format` / `npm run typecheck` |
 
 ## 5. Architecture
-<!-- Why: keeps business logic out of routes and React. Full tree and patterns: docs/architecture.md. -->
+<!-- Why: keeps business logic out of routes and React. -->
 - Monorepo: `apps/web` (React), `apps/api` (Express), `packages/shared` (Zod schemas + types).
 - API layers: routes → controller → service → `domain/` (pure logic) + repo (the only place that
   imports Prisma).
@@ -102,8 +102,8 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - `camelCase` variables and functions, `PascalCase` types, `SCREAMING_SNAKE_CASE` constants,
   booleans start with `is/has/can/should`.
 - Prisma models singular `PascalCase`, tables `snake_case` via `@@map`; API paths plural kebab-case.
-- Use the PRD's words (wallet card, rewards program, reward rule, perk, bonus offer, rotating
-  category, store alias). Every `TODO` references an issue: `// TODO(#23): …`.
+- Use these words: wallet card, rewards program, reward rule, perk, bonus offer, rotating category,
+  store alias. Every `TODO` references an issue: `// TODO(#23): …`.
 
 ## 8. Testing
 <!-- Why: P2 grades failing tests committed first. Story IDs in test names show where each test came from. -->
@@ -111,32 +111,46 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - Unit: everything in `domain/`, at **90% line and branch coverage**, enforced in the Vitest config.
 - Integration: every endpoint, including auth and ownership, against a test database
   (`DATABASE_URL_TEST`).
-- E2E (Playwright): one spec per core PRD flow. Error paths tested: empty input, bad input, database down.
-- Names map to stories and ACs (`describe('rankCards (US-03)')`, `it('AC2: …')`). Fixed clock and named factories; no `Date.now()` or random data.
+- E2E (Playwright): one spec per core flow, at mobile and desktop sizes. Error paths tested: empty
+  input, bad input, database down.
+- Names map to stories and ACs (`describe('rankCards (US-03)')`, `it('AC2: …')`). Fixed clock and
+  named factories; no `Date.now()` or random data.
 
 ## 9. Design
-<!-- Why: design rules live in one place, so the agent never invents or reuses outdated colors. -->
-- **UI work follows `DESIGN.md`. Mockups are in `docs/design/`.**
-- The Tailwind theme is generated from `DESIGN.md` (`npx @google/design.md export --format css-tailwind`),
-  never hand-copied. No raw hex values in components.
-- Screen behavior (components, states, flows): `docs/design/ui-behavior.md`.
-- Every data view has loading, empty, and error states. Check each page against the mockup in
-  browser mode before opening the PR.
+<!-- Why: without a picture in words, agents invent their own look, copy, and extra features. -->
+- **UI follows `docs/DESIGN.md` (look) and `docs/ui-behavior.md` (states, flows, exact error text).
+  Mockups: `docs/design/mockup.png` (mobile) and `docs/design/mockup-desktop.png` (website).**
+- **Look:** iOS-style Liquid Glass on a warm light green background. Frosted white panels, glossy
+  "liquid" category icons, and one green primary button per screen.
+- **One responsive app, two layouts** (Tailwind breakpoints only):
+  - Mobile (under 768px): large iOS titles, floating glass tab bar (Home, Wallet, Tracker, Alerts),
+    results in bottom sheets.
+  - Website (1200px and up): a normal site with a sticky glass top bar, open pages and tables, and
+    a footer. Never a stretched phone layout, sidebar, or tab bar. Tablets use the top bar.
+- **Key components** (build once in `apps/web/src/components/`, reuse): glass panel, search pill,
+  liquid icon, card art (card name only), best-card row, green pill button.
+- **Sign-up flow (US-01):** Name, Email, Password, Confirm password in one glass group → validate
+  on blur → password strength bar → "Create account" (disabled with a spinner while sending) →
+  success goes to Wallet's empty state. Website: headline and floating card art on the left, form
+  card on the right.
+- Tailwind theme generated from `docs/DESIGN.md` (`npx @google/design.md export`), never hand-copied;
+  no raw hex in components. Every data view has loading, empty, and error states. Check each page
+  against the mockup in browser mode, at mobile and desktop sizes, before opening the PR.
 
 ## 10. Workflow (Scrum + Git)
 <!-- Why: every line of code traces to a story, an issue, a branch, a commit, and a reviewed PR. -->
 - Team: Dhanraj Pandya and Nakul Shivaraj. **Product Owner and Scrum Master rotate each sprint**;
   current roles are in `docs/sprints/sprint-N/planning.md`.
 - Board: Backlog → Sprint Todo → In Progress → In Review → Done. One milestone per sprint.
-  Labels: `feature`, `bug`, `chore`, `docs`, `priority:high|medium|low`.
-- Issues come from PRD stories via the issue template: story ID, ACs as a checklist, estimate. The
+  Labels: `feature`, `bug`, `chore`, `docs`, `priority: high|medium|low`.
+- Issues come from the backlog via the issue template: story ID, ACs as a checklist, estimate. The
   agent may propose issues; partners approve them at Sprint Planning. No work without an issue.
 - One branch per issue: `feature|fix|chore|docs/<issue#>-<slug>`.
 - Commits: `type(scope): imperative summary (#issue)`. Types: `feat`, `fix`, `test`, `refactor`,
   `chore`, `docs`, `ci`. `Co-authored-by:` only when both partners worked on it.
 - PRs use the template (`Closes #N`, how it was tested, partner-review checkbox), need partner
   approval, and **merge only when CI is green** (branch protection). Merge commits, not squash.
-- Rules changes (this file, `DESIGN.md`) go in their own PR.
+- Rules changes (this file, `docs/DESIGN.md`) go in their own PR.
 - Sprint records: `docs/sprints/sprint-N/` (`planning.md`, `standups.md`, `retro.md`). Never fabricate any.
 
 ## 11. CI
@@ -147,7 +161,7 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - CI never uses production secrets. Never disable a test, lower coverage, or add `@ts-ignore` to get green.
 
 ## 12. Security
-<!-- Why: SwipeWise handles financial data. These map to the PRD's security requirements. -->
+<!-- Why: SwipeWise handles financial data. These are our security requirements. -->
 - argon2id passwords; JWT in an httpOnly, Secure, SameSite=Lax cookie; `helmet`; CORS allowlist;
   rate limits on `/api/v1/auth/*`; one generic message for wrong email or password.
 - Account rules (US-01): passwords are at least 8 characters with at least one number; emails are
@@ -168,24 +182,28 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - Keyboard-only use works with a visible focus ring; every input has a visible label; contrast ≥ 4.5:1.
 - Respect `prefers-reduced-motion`. Never show status by color alone. Announce dynamic results with `aria-live`.
 
-## 14. Ask first
-<!-- Why: some decisions belong to us, not the agent. -->
-- Hosting, the job scheduler, and deploy previews
-- Any dependency not in `docs/dependencies.md`
-- Schema changes beyond the issue
-- Changes to this file, `DESIGN.md`, or the PRD
-- Anything near a non-goal
+## 14. Do's, don'ts, and ask first
+<!-- Why: a short checklist the agent can scan before every change. -->
+- **Do:** small steps, one issue at a time, tests first; reuse shared Zod schemas, existing
+  components, and DESIGN.md tokens; use the exact UI text from `docs/ui-behavior.md`.
+- **Don't:** add libraries not in `docs/dependencies.md`; use floats for money or `Date` for month
+  math; invent facts, stats, ratings, security claims, or real card brands in the UI; build
+  non-goals or extras the issue didn't ask for; push to `main`; skip tests or loading/empty/error states.
+- **Ask first:** hosting, the job scheduler, and deploy previews; schema changes beyond the issue;
+  changes to this file or `docs/DESIGN.md`; anything near a non-goal.
 
 ## 15. Where docs live
+Files marked *(later)* don't exist yet; don't look for or create them unless an issue asks.
+
 | What | Where |
 |---|---|
-| PRD (stories `US-xx`, non-goals) | `docs/PRD.md` |
-| Design tokens and rules / mockups | `DESIGN.md` / `docs/design/` |
-| Folder tree and patterns | `docs/architecture.md` |
-| API | `docs/api/openapi.yaml` |
-| Decisions and open assumptions | `docs/decisions/` |
+| Requirements (stories `US-xx`, ACs) | GitHub issues |
+| Design tokens and rules / mockups | `docs/DESIGN.md` / `docs/design/` |
+| Screen behavior (states, flows, errors) | `docs/ui-behavior.md` |
+| Libraries | `docs/dependencies.md` |
 | Sprint planning, standups, retros | `docs/sprints/sprint-N/` |
-| Libraries / Definition of Done | `docs/dependencies.md` / `docs/definition-of-done.md` |
+| API | `docs/api/openapi.yaml` *(later)* |
+| Folder tree, decisions, Definition of Done | `docs/architecture.md`, `docs/decisions/`, `docs/definition-of-done.md` *(later)* |
 
 `CLAUDE.md` contains only `@AGENTS.md`. Never copy rules into `.agents/`, `.cursor/`, or `.claude/`.
 
@@ -196,3 +214,4 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 | v0.1 | 2026-10-28 | First draft from the idea doc | — |
 | v0.2 | 2026-10-28 | Cut to under 200 lines and moved details to `docs/`; synced with PRD non-goals; story IDs instead of section numbers; UI points to `DESIGN.md`; paths match the lecture layout; added role rotation, `CLAUDE.md`, CI-green merges, and Husky | v0.1 was ~450 lines, referenced features the PRD dropped and colors we rejected, so the agent could have built the wrong things |
 | v0.3 | 2026-10-28 | Added account rules (US-01); "Ask first" as a list; created `CLAUDE.md` and every linked `docs/` file | Pre-Run B review: missing linked files would make the agent stop and ask, and rules not written down can't be followed |
+| v0.4 | 2026-10-29 | Paths match the repo (`docs/DESIGN.md`, `docs/ui-behavior.md`, mockup files); GitHub issues replace the PRD as requirements; design section now describes the mockups, both layouts, key components, and the sign-up flow; added Do's and Don'ts; marked docs that don't exist yet | Pre-Run B check: wrong paths and a thin design section would make the agent guess the look and flow |

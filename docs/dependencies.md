@@ -44,7 +44,7 @@ npm workspaces: `apps/web` (frontend), `apps/api` (backend), `packages/shared` (
 | cors | Allow only our frontend origin |
 | express-rate-limit | Rate limiting, especially auth routes |
 | pino, pino-http | Logging, with passwords and tokens redacted |
-| date-fns, @date-fns/tz | All date, period, and time-zone logic |
+| luxon, @types/luxon | All date, period, and time-zone logic |
 | @asteasolutions/zod-to-openapi, swagger-ui-express | OpenAPI docs from Zod schemas |
 | node-cron | Daily reminder job (Sprint 2; may be replaced by the host's scheduler) |
 
@@ -72,7 +72,7 @@ npm workspaces: `apps/web` (frontend), `apps/api` (backend), `packages/shared` (
 
 - **UI kits** (MUI, Chakra, Bootstrap, shadcn themes): they fight our DESIGN.md look.
 - **axios:** use `fetch`.
-- **moment.js:** use date-fns.
+- **moment.js and date-fns:** use Luxon.
 - **bcrypt (native) and crypto-js:** use argon2.
 - **jsonwebtoken:** use jose.
 - **Storing tokens in localStorage:** use an httpOnly cookie.
