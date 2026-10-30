@@ -106,3 +106,12 @@ model WalletCard {
 
   @@map("wallet_cards")
 }
+
+
+model RateLimit {
+  key       String   @id
+  totalHits Int      @default(1) @map("total_hits")
+  resetTime DateTime @map("reset_time")
+
+  @@map("rate_limits")
+}

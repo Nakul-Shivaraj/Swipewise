@@ -109,3 +109,32 @@ describe('Sign up validation schemas (US-01)', () => {
     expect(calculatePasswordStrength('Abc12345!')).toEqual({ score: 4, label: 'Strong password' });
   });
 });
+
+
+describe('Log in validation schema (US-01 / Issue #10)', () => {
+  it('AC2: accepts valid login inputs', async () => {
+    // @ts-expect-error loginRequestSchema will be exported
+    const { loginRequestSchema } = await import('./auth.js');
+    const result = loginRequestSchema.safeParse({
+      email: 'user@example.com',
+      password: 'Password123',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('AC2: validates email and non-empty password', async () => {
+    // @ts-expect-error loginRequestSchema will be exported
+    const { loginRequestSchema } = await import('./auth.js');
+    const badEmail = loginRequestSchema.safeParse({
+      email: 'not-an-email',
+      password: 'Password123',
+    });
+    expect(badEmail.success).toBe(false);
+
+    const emptyPass = loginRequestSchema.safeParse({
+      email: 'user@example.com',
+      password: '',
+    });
+    expect(emptyPass.success).toBe(false);
+  });
+});
