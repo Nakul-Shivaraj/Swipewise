@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "npm run dev --workspaces",
     "build": "npm run build --workspaces",
+    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npm --workspace=@swipewise/api run db:migrate:deploy; fi && npm run build",
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -b",
@@ -16,6 +17,7 @@
     "design:theme": "node_modules\\.bin\\design.md.cmd export docs/DESIGN.md --format css-tailwind > apps/web/src/theme.css",
     "db:migrate": "npm --workspace=@swipewise/api run db:migrate",
     "db:seed": "npm --workspace=@swipewise/api run db:seed",
+    "postinstall": "npm --workspace=@swipewise/api run postinstall",
     "prepare": "husky"
   },
   "lint-staged": {

@@ -9,12 +9,13 @@
     "esModuleInterop": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "noEmit": true
   },
   "references": [
     { "path": "./packages/shared" },
     { "path": "./apps/api" },
     { "path": "./apps/web" }
   ],
-  "files": []
+  "include": ["api/**/*.ts"]
 }
