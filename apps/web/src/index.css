@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+:root {
+  font-family: -apple-system, "SF Pro Text", "Inter", sans-serif;
+  color: #1c2a1e;
+  background-color: #e7eed8;
+}
