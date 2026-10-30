@@ -20,12 +20,15 @@ describe('Demo Seed Data (Issue #9)', () => {
     expect(harbor?.centsPer100Points).toBe(125); // 1.25¢ per point
   });
 
-  it('AC: defines Mint Everyday demo card with correct fee and rates', () => {
+  it('AC: defines Mint Everyday demo card with correct fee, rates, issuer, and artColor', () => {
     const mint = DEMO_CARDS.find((c) => c.name === 'Mint Everyday');
     expect(mint).toBeDefined();
     expect(mint?.annualFeeCents).toBe(0);
     expect(mint?.baseRateX100).toBe(100); // 1% base
     expect(mint?.programName).toBe('Cash Back');
+    expect(mint?.issuer).toBe('Demo Bank');
+    expect(mint?.isDemo).toBe(true);
+    expect(mint?.artColor).toBe('#2F8C55');
 
     const groceriesRule = mint?.rules.find((r) => r.category === 'GROCERIES');
     expect(groceriesRule).toBeDefined();
@@ -36,24 +39,30 @@ describe('Demo Seed Data (Issue #9)', () => {
     expect(diningRule?.rateX100).toBe(200); // 2%
   });
 
-  it('AC: defines Harbor Travel Plus demo card with $95 fee and 2x travel', () => {
+  it('AC: defines Harbor Travel Plus demo card with $95 fee, 2x travel, issuer, and artColor', () => {
     const harbor = DEMO_CARDS.find((c) => c.name === 'Harbor Travel Plus');
     expect(harbor).toBeDefined();
     expect(harbor?.annualFeeCents).toBe(9500); // $95 fee
     expect(harbor?.baseRateX100).toBe(100); // 1x base
     expect(harbor?.programName).toBe('Harbor Points');
+    expect(harbor?.issuer).toBe('Demo Bank');
+    expect(harbor?.isDemo).toBe(true);
+    expect(harbor?.artColor).toBe('#2F74D0');
 
     const travelRule = harbor?.rules.find((r) => r.category === 'TRAVEL');
     expect(travelRule).toBeDefined();
     expect(travelRule?.rateX100).toBe(200); // 2x
   });
 
-  it('AC: defines Basic Flat demo card with 1.5% base and $0 fee', () => {
+  it('AC: defines Basic Flat demo card with 1.5% base, $0 fee, issuer, and artColor', () => {
     const flat = DEMO_CARDS.find((c) => c.name === 'Basic Flat');
     expect(flat).toBeDefined();
     expect(flat?.annualFeeCents).toBe(0);
     expect(flat?.baseRateX100).toBe(150); // 1.5% base
     expect(flat?.programName).toBe('Cash Back');
+    expect(flat?.issuer).toBe('Demo Bank');
+    expect(flat?.isDemo).toBe(true);
+    expect(flat?.artColor).toBe('#958C7B');
     expect(flat?.rules.length).toBe(0);
   });
 
@@ -116,6 +125,13 @@ describe('Demo Seed Data (Issue #9)', () => {
     expect(sql).toContain('INSERT INTO rewards_programs');
     expect(sql).toContain('ON CONFLICT (name) DO UPDATE');
     expect(sql).toContain('INSERT INTO cards');
+    expect(sql).toContain('issuer');
+    expect(sql).toContain('art_color');
+    expect(sql).toContain('is_demo');
+    expect(sql).toContain('#2F8C55');
+    expect(sql).toContain('#2F74D0');
+    expect(sql).toContain('#958C7B');
+    expect(sql).toContain('Demo Bank');
     expect(sql).toContain('INSERT INTO reward_rules');
     expect(sql).toContain('INSERT INTO stores');
     expect(sql).toContain('INSERT INTO store_aliases');

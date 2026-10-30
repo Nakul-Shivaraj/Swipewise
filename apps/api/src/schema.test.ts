@@ -52,4 +52,10 @@ describe('Prisma Schema Definition (Issue #9)', () => {
   it('AC: calendar date fields use @db.Date and suffix Date', () => {
     expect(schema).toMatch(/openedDate\s+DateTime\?\s+@db\.Date/);
   });
+
+  it('AC: Card model defines issuer, artColor, and isDemo fields', () => {
+    expect(schema).toMatch(/issuer\s+String/);
+    expect(schema).toMatch(/artColor\s+String\s+@map\("art_color"\)/);
+    expect(schema).toMatch(/isDemo\s+Boolean\s+@default\(true\)\s+@map\("is_demo"\)/);
+  });
 });
