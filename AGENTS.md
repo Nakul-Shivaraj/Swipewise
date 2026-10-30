@@ -1,5 +1,5 @@
 <!--
-  AGENTS.md — SwipeWise (P2): the one rules file every AI tool we use reads; CLAUDE.md points here.
+  AGENTS.md — SwipeWise (P2): the one rules file every AI tool we use reads.
   Under ~200 lines on purpose: it loads on every request, so details live in docs/ and are linked.
   Each section opens with a "Why". Change it only via its own PR, revisit it at every retro,
   and log each change in the revision history.
@@ -11,7 +11,7 @@ SwipeWise is a private card wallet: it shows which of the user's existing credit
 purchase and reminds them before perks, bonuses, points, or payments slip. **It never moves money
 and never stores full card numbers.**
 
-> **Status: v0.4 (Oct 29, 2026).** Design docs and mockups are in `docs/`. Requirements are the GitHub issues.
+> **Status: v0.5 (Oct 29, 2026).** Design docs and mockups are in `docs/`. Requirements are the GitHub issues.
 
 **Source of truth:** the security and money rules here always win. Then: the GitHub issue and its
 acceptance criteria → `docs/DESIGN.md` and `docs/ui-behavior.md` → the rest of this file.
@@ -24,7 +24,7 @@ If two conflict, stop and ask.
 2. Branch from `main`: `feature/<issue#>-<short-slug>`.
 3. **Red:** write failing tests that map to the ACs, run them, commit `test(<scope>): … (#N)`.
 4. **Green:** minimum code to pass, commit `feat(<scope>): … (#N)`. Refactor with tests green.
-5. Before saying you're done: `npm run lint && npm run typecheck && npm test`.
+5. Before saying you're done: `npm run lint && npm run typecheck && npm test && npm run build`.
 6. Report: files changed, tests written, commands run with their real output, what's left.
 7. Never claim a test passes or a deploy works unless you ran it. Never push to `main`; ask before pushing.
 
@@ -59,7 +59,11 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 | Migrate / seed | `npm run db:migrate` / `npm run db:seed` |
 | Unit + integration / coverage | `npm test` / `npm run test:coverage` |
 | End-to-end | `npm run e2e` |
-| Lint / format / types | `npm run lint` / `npm run format` / `npm run typecheck` |
+| Lint / format / types / build | `npm run lint` / `npm run format` / `npm run typecheck` / `npm run build` |
+
+**Environment:** Windows + PowerShell. If `node` or `npm` isn't found, stop and ask; don't search the
+disk. If `gh` isn't installed, read issues with
+`curl.exe -s https://api.github.com/repos/Nakul-Shivaraj/Swipewise/issues/<N>`.
 
 ## 5. Architecture
 <!-- Why: keeps business logic out of routes and React. -->
@@ -133,6 +137,8 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
   on blur → password strength bar → "Create account" (disabled with a spinner while sending) →
   success goes to Wallet's empty state. Website: headline and floating card art on the left, form
   card on the right.
+- Labels, buttons, and headings use sentence case ("Email", not "EMAIL"). Use only DESIGN.md colors;
+  the password strength bar uses `primary` and `ink-muted`, never orange or red.
 - Tailwind theme generated from `docs/DESIGN.md` (`npx @google/design.md export`), never hand-copied;
   no raw hex in components. Every data view has loading, empty, and error states. Check each page
   against the mockup in browser mode, at mobile and desktop sizes, before opening the PR.
@@ -172,7 +178,8 @@ Allowed and avoided libraries: `docs/dependencies.md`. Anything not listed there
 - Only admins change the catalog and stores (`requireAdmin`).
 - No secrets in frontend code or `VITE_*` vars. Never commit `.env`; if it happens, rotate the keys.
   Logs redact tokens, cookies, and passwords. No `$queryRawUnsafe`.
-- Seeded cards are labeled "Demo"; never invent real card terms. Retire, never delete, cards users hold.
+- Demo cards use made-up names only ("Mint Everyday", "Harbor Travel"), never real card or bank names,
+  even with "Demo" in front. Never invent real card terms. Retire, never delete, cards users hold.
 - Required tests: User A can't read, change, or delete User B's data (including by guessing IDs); a
   regular user can't perform admin actions; card-number input is rejected and never reaches the
   database or logs.
@@ -205,7 +212,7 @@ Files marked *(later)* don't exist yet; don't look for or create them unless an 
 | API | `docs/api/openapi.yaml` *(later)* |
 | Folder tree, decisions, Definition of Done | `docs/architecture.md`, `docs/decisions/`, `docs/definition-of-done.md` *(later)* |
 
-`CLAUDE.md` contains only `@AGENTS.md`. Never copy rules into `.agents/`, `.cursor/`, or `.claude/`.
+Never copy rules into `.agents/`, `.cursor/`, or `.claude/`.
 
 ## 16. Revision history
 <!-- Every rule change gets a row. This is our evidence of iteration for HW3. -->
@@ -215,3 +222,4 @@ Files marked *(later)* don't exist yet; don't look for or create them unless an 
 | v0.2 | 2026-10-28 | Cut to under 200 lines and moved details to `docs/`; synced with PRD non-goals; story IDs instead of section numbers; UI points to `DESIGN.md`; paths match the lecture layout; added role rotation, `CLAUDE.md`, CI-green merges, and Husky | v0.1 was ~450 lines, referenced features the PRD dropped and colors we rejected, so the agent could have built the wrong things |
 | v0.3 | 2026-10-28 | Added account rules (US-01); "Ask first" as a list; created `CLAUDE.md` and every linked `docs/` file | Pre-Run B review: missing linked files would make the agent stop and ask, and rules not written down can't be followed |
 | v0.4 | 2026-10-29 | Paths match the repo (`docs/DESIGN.md`, `docs/ui-behavior.md`, mockup files); GitHub issues replace the PRD as requirements; design section now describes the mockups, both layouts, key components, and the sign-up flow; added Do's and Don'ts; marked docs that don't exist yet | Pre-Run B check: wrong paths and a thin design section would make the agent guess the look and flow |
+| v0.5 | 2026-10-29 | Demo cards must use made-up names; sentence-case labels; DESIGN.md colors only (strength bar); added `npm run build` to the done check; added an Environment note for Node and reading issues without `gh`; removed `CLAUDE.md` | Run B results: it named a card "Demo Sapphire Reserve", used ALL CAPS labels and an orange color, had a failed build, and spent time searching for Node and the GitHub CLI |
