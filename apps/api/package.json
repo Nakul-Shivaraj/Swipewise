@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "node --watch src/server.ts",
     "build": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "node --experimental-strip-types src/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "7.10.1",
     "@swipewise/shared": "*",
     "argon2": "0.45.1",
     "cookie-parser": "1.4.7",
@@ -24,6 +27,7 @@
     "@types/cors": "2.8.17",
     "@types/express": "5.0.0",
     "@types/supertest": "6.0.2",
+    "prisma": "7.10.1",
     "supertest": "7.3.1",
     "typescript": "5.7.3",
     "vitest": "3.0.5"

@@ -12,7 +12,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc -b",
-    "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
+    "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "db:migrate": "npm --workspace=@swipewise/api run db:migrate",
+    "db:seed": "npm --workspace=@swipewise/api run db:seed"
   },
   "devDependencies": {
     "@hookform/resolvers": "^6.0.2",
