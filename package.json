@@ -15,7 +15,17 @@
     "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "design:theme": "node_modules\\.bin\\design.md.cmd export docs/DESIGN.md --format css-tailwind > apps/web/src/theme.css",
     "db:migrate": "npm --workspace=@swipewise/api run db:migrate",
-    "db:seed": "npm --workspace=@swipewise/api run db:seed"
+    "db:seed": "npm --workspace=@swipewise/api run db:seed",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.css": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@google/design.md": "0.4.0",
@@ -23,6 +33,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "9.20.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
     "prettier": "3.5.0",
     "typescript": "5.7.3",
     "typescript-eslint": "8.24.0",
