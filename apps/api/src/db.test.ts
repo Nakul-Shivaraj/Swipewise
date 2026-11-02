@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import pg from "pg";
+import { createPrismaClient, resolveDatabaseConfig } from "./db.js";
 
 describe("Project Structure & Database Setup (Issue #4)", () => {
   const rootDir = path.resolve(__dirname, "../../..");
@@ -66,5 +68,45 @@ describe("Project Structure & Database Setup (Issue #4)", () => {
     expect(readmeContent).toContain("## Local setup");
     expect(readmeContent).toContain("db:migrate");
     expect(readmeContent).toContain("db:seed");
+  });
+
+  it("AC (Issue #6): db.ts uses DATABASE_URL_TEST with schema=test in tests and never public", async () => {
+    const testEnv: NodeJS.ProcessEnv = {
+      NODE_ENV: "test",
+      DATABASE_URL:
+        "postgresql://user:pass@localhost:6543/postgres?pgbouncer=true&schema=public",
+      DATABASE_URL_TEST:
+        "postgresql://user:pass@localhost:6543/postgres?pgbouncer=true&schema=test",
+    };
+
+    const config = resolveDatabaseConfig(testEnv);
+    expect(config.connectionString).toBe(testEnv.DATABASE_URL_TEST);
+    expect(config.schema).toBe("test");
+
+    // Verify Prisma queries target "test"."users" and never "public"
+    const executedSql: string[] = [];
+    const fakePool = new pg.Pool({
+      connectionString: testEnv.DATABASE_URL_TEST,
+    });
+    fakePool.query = (async (queryConfig: { text: string }) => {
+      executedSql.push(queryConfig.text);
+      return { fields: [], rows: [] };
+    }) as unknown as typeof fakePool.query;
+
+    const testPrisma = createPrismaClient(testEnv, fakePool);
+    await testPrisma.user.findMany();
+
+    expect(executedSql).toHaveLength(1);
+    expect(executedSql[0]).toContain('"test"."users"');
+    expect(executedSql[0]).not.toContain('"public"');
+
+    // Verify public schema is explicitly rejected in test mode
+    expect(() =>
+      resolveDatabaseConfig({
+        NODE_ENV: "test",
+        DATABASE_URL_TEST:
+          "postgresql://user:pass@localhost:6543/postgres?schema=public",
+      }),
+    ).toThrow(/never use the public schema/i);
   });
 });

@@ -1,5 +1,5 @@
-import { PrismaClient, User } from '@prisma/client';
-import { prisma as defaultPrisma } from '../db/client.js';
+import { PrismaClient, User } from "@prisma/client";
+import { prisma as defaultPrisma } from "../db.js";
 
 export type UserRecord = User;
 
