@@ -12,6 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: swipewise_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/swipewise_test?schema=test
+      DIRECT_URL_TEST: postgresql://postgres:postgres@localhost:5432/swipewise_test?schema=test
+      JWT_SECRET: dummy-jwt-secret-key-for-ci-testing-at-least-32-chars
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,6 +48,12 @@ jobs:
 
       - name: Type check
         run: npm run typecheck
+
+      - name: Deploy Prisma migrations to test database
+        run: npm --workspace=@swipewise/api run db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/swipewise_test?schema=test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/swipewise_test?schema=test
 
       - name: Run tests
         run: npm test

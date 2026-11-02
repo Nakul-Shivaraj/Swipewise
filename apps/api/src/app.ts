@@ -20,6 +20,7 @@ import { prisma as defaultPrisma } from "./db.js";
 
 export interface AppOptions {
   rateLimitMax?: number;
+  generalRateLimitMax?: number;
   prisma?: PrismaClient;
   schema?: string;
 }
@@ -52,13 +53,30 @@ export function createApp(options: AppOptions = {}) {
     }
   });
 
-  // Postgres-backed rate limiting for auth routes (suitable for Vercel serverless)
+  // General Postgres-backed rate limiting for all /api/v1 routes
+  const generalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: options.generalRateLimitMax ?? 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new PostgresRateLimitStore(activePrisma, activeSchema, "general"),
+    handler: (_req: Request, res: Response) => {
+      res.status(429).json({
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Too many requests. Please try again later.",
+        },
+      });
+    },
+  });
+
+  // Postgres-backed rate limiting for auth routes (stricter limit)
   const authLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: options.rateLimitMax ?? 5,
     standardHeaders: true,
     legacyHeaders: false,
-    store: new PostgresRateLimitStore(activePrisma, activeSchema),
+    store: new PostgresRateLimitStore(activePrisma, activeSchema, "auth"),
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
         error: {
@@ -69,6 +87,7 @@ export function createApp(options: AppOptions = {}) {
     },
   });
 
+  app.use("/api/v1", generalLimiter);
   app.use("/api/v1/auth", authLimiter);
   app.post("/api/v1/auth/signup", signupHandler);
   app.post("/api/v1/auth/login", loginHandler);

@@ -211,12 +211,12 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
   });
 
   it("AC5: rate limits protected routes like /api/v1/wallet and returns 429 when general limit is exceeded", async () => {
-    // General rate limit set to 2 requests
+    // General rate limit set to 3 requests (1 signup + 2 wallet requests allowed)
     const limitedApp = createApp({
       prisma,
       schema: "test",
       rateLimitMax: 100,
-      generalRateLimitMax: 2,
+      generalRateLimitMax: 3,
     });
 
     const signupRes = await request(limitedApp)
