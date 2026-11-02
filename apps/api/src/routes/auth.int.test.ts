@@ -209,4 +209,46 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     const limits = await prisma.rateLimit.findMany();
     expect(limits.length).toBeGreaterThan(0);
   });
+
+  it("AC5: rate limits protected routes like /api/v1/wallet and returns 429 when general limit is exceeded", async () => {
+    // General rate limit set to 2 requests
+    const limitedApp = createApp({
+      prisma,
+      schema: "test",
+      rateLimitMax: 100,
+      generalRateLimitMax: 2,
+    });
+
+    const signupRes = await request(limitedApp)
+      .post("/api/v1/auth/signup")
+      .send({
+        name: "Wallet Rate Limit User",
+        email: "walletratelimit@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
+    const cookieHeader = signupRes.headers["set-cookie"]!;
+
+    // Request 1: allowed (200)
+    const res1 = await request(limitedApp)
+      .get("/api/v1/wallet")
+      .set("Cookie", cookieHeader);
+    expect(res1.status).toBe(200);
+
+    // Request 2: allowed (200)
+    const res2 = await request(limitedApp)
+      .get("/api/v1/wallet")
+      .set("Cookie", cookieHeader);
+    expect(res2.status).toBe(200);
+
+    // Request 3: must be rate limited with 429
+    const res3 = await request(limitedApp)
+      .get("/api/v1/wallet")
+      .set("Cookie", cookieHeader);
+    expect(res3.status).toBe(429);
+    expect(res3.body.error.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(res3.body.error.message).toBe(
+      "Too many requests. Please try again later.",
+    );
+  });
 });
