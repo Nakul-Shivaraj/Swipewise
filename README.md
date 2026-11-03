@@ -34,6 +34,11 @@ People with multiple credit cards often use the wrong card, forget their perks, 
    npm run db:seed
    ```
 
+   - **Dev-only demo wallet helper:** Until wallet card management (#11) is built, you can populate an existing signed-up user's wallet with the 3 demo catalog cards for local or preview testing. This script refuses to run unless `ALLOW_DEMO_SEED=true` is explicitly set (never set `ALLOW_DEMO_SEED` in Vercel) and is idempotent:
+     ```bash
+     ALLOW_DEMO_SEED=true npm run db:demo-wallet -- --email <your-email>
+     ```
+
 4. **Start development servers:**
 
    ```bash

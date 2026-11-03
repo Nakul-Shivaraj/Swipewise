@@ -10,7 +10,8 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "node --experimental-strip-types --conditions=development src/seed.ts"
+    "db:seed": "node --experimental-strip-types --conditions=development src/seed.ts",
+    "db:demo-wallet": "node --experimental-strip-types --conditions=development src/demo-wallet.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
