@@ -57,4 +57,50 @@ describe("CSRF Protection (js/missing-token-validation)", () => {
     expect(signupRes.status).toBe(201);
     expect(signupRes.body.user.email).toBe("withcsrf@example.com");
   });
+
+  it("returns 403 on POST, PATCH, and DELETE /api/v1/wallet/cards without CSRF token even for a logged-in user", async () => {
+    // 1. Get CSRF token to sign up
+    const tokenRes = await request(app).get("/api/v1/csrf-token");
+    const csrfToken = tokenRes.body.csrfToken as string;
+    const csrfCookie = tokenRes.headers["set-cookie"]!;
+
+    const signupRes = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("Cookie", csrfCookie)
+      .set("x-csrf-token", csrfToken)
+      .send({
+        name: "Wallet CSRF User",
+        email: "walletcsrf@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
+
+    const authCookie = signupRes.headers["set-cookie"]![0]!.split(";")[0]!;
+
+    // POST /api/v1/wallet/cards without CSRF token returns 403
+    const postRes = await request(app)
+      .post("/api/v1/wallet/cards")
+      .set("Cookie", authCookie)
+      .send({ cardId: "123e4567-e89b-12d3-a456-426614174000" });
+    expect(postRes.status).toBe(403);
+    expect(postRes.body.error.code).toBe("EBADCSRFTOKEN");
+    expect(postRes.body.error.message).toBe("Invalid or missing CSRF token.");
+
+    // PATCH /api/v1/wallet/cards/:id without CSRF token returns 403
+    const patchRes = await request(app)
+      .patch("/api/v1/wallet/cards/123e4567-e89b-12d3-a456-426614174000")
+      .set("Cookie", authCookie)
+      .send({ nickname: "Hacked" });
+    expect(patchRes.status).toBe(403);
+    expect(patchRes.body.error.code).toBe("EBADCSRFTOKEN");
+    expect(patchRes.body.error.message).toBe("Invalid or missing CSRF token.");
+
+    // DELETE /api/v1/wallet/cards/:id without CSRF token returns 403
+    const deleteRes = await request(app)
+      .delete("/api/v1/wallet/cards/123e4567-e89b-12d3-a456-426614174000")
+      .set("Cookie", authCookie);
+    expect(deleteRes.status).toBe(403);
+    expect(deleteRes.body.error.code).toBe("EBADCSRFTOKEN");
+    expect(deleteRes.body.error.message).toBe("Invalid or missing CSRF token.");
+  });
 });

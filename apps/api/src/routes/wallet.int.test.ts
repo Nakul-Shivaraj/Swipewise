@@ -154,6 +154,24 @@ describe("Wallet API (US-02 / Issue #11)", () => {
       expect(res.status).toBe(401);
     });
 
+    it("returns 403 without a CSRF token even for a logged-in user", async () => {
+      const user = await registerUser("postcsrf@example.com", "Post CSRF User");
+      const mintCard = await prisma.card.findUniqueOrThrow({
+        where: { name: "Mint Everyday" },
+      });
+      const authCookieOnly = user.cookies.split(";")[0]!;
+      const res = await request(app)
+        .post("/api/v1/wallet/cards")
+        .set("Cookie", authCookieOnly)
+        .send({
+          cardId: mintCard.id,
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("EBADCSRFTOKEN");
+      expect(res.body.error.message).toBe("Invalid or missing CSRF token.");
+    });
+
     it("AC1: adds a card from catalog with optional nickname and open date", async () => {
       const user = await registerUser("addcard@example.com", "Add Card User");
       const mintCard = await prisma.card.findUniqueOrThrow({
@@ -257,6 +275,36 @@ describe("Wallet API (US-02 / Issue #11)", () => {
   });
 
   describe("PATCH /api/v1/wallet/cards/:id", () => {
+    it("returns 403 without a CSRF token even for a logged-in user", async () => {
+      const user = await registerUser(
+        "patchcsrf@example.com",
+        "Patch CSRF User",
+      );
+      const mintCard = await prisma.card.findUniqueOrThrow({
+        where: { name: "Mint Everyday" },
+      });
+
+      const addRes = await request(app)
+        .post("/api/v1/wallet/cards")
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
+        .send({ cardId: mintCard.id, nickname: "Original" });
+
+      const walletCardId = addRes.body.walletCard.id;
+      const authCookieOnly = user.cookies.split(";")[0]!;
+
+      const patchRes = await request(app)
+        .patch(`/api/v1/wallet/cards/${walletCardId}`)
+        .set("Cookie", authCookieOnly)
+        .send({ nickname: "Renamed Without CSRF" });
+
+      expect(patchRes.status).toBe(403);
+      expect(patchRes.body.error.code).toBe("EBADCSRFTOKEN");
+      expect(patchRes.body.error.message).toBe(
+        "Invalid or missing CSRF token.",
+      );
+    });
+
     it("AC2: renames a wallet card", async () => {
       const user = await registerUser("rename@example.com", "Rename User");
       const mintCard = await prisma.card.findUniqueOrThrow({
@@ -307,6 +355,33 @@ describe("Wallet API (US-02 / Issue #11)", () => {
   });
 
   describe("DELETE /api/v1/wallet/cards/:id", () => {
+    it("returns 403 without a CSRF token even for a logged-in user", async () => {
+      const user = await registerUser(
+        "deletecsrf@example.com",
+        "Delete CSRF User",
+      );
+      const mintCard = await prisma.card.findUniqueOrThrow({
+        where: { name: "Mint Everyday" },
+      });
+
+      const addRes = await request(app)
+        .post("/api/v1/wallet/cards")
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
+        .send({ cardId: mintCard.id });
+
+      const walletCardId = addRes.body.walletCard.id;
+      const authCookieOnly = user.cookies.split(";")[0]!;
+
+      const delRes = await request(app)
+        .delete(`/api/v1/wallet/cards/${walletCardId}`)
+        .set("Cookie", authCookieOnly);
+
+      expect(delRes.status).toBe(403);
+      expect(delRes.body.error.code).toBe("EBADCSRFTOKEN");
+      expect(delRes.body.error.message).toBe("Invalid or missing CSRF token.");
+    });
+
     it("AC2: removes a card from user's wallet", async () => {
       const user = await registerUser("remove@example.com", "Remove User");
       const mintCard = await prisma.card.findUniqueOrThrow({
