@@ -7,7 +7,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces",
+    "dev": "node scripts/dev.js",
+    "dev:api": "npm run dev --workspace=@swipewise/api",
+    "dev:web": "npm run dev --workspace=@swipewise/web",
     "build": "npm run build --workspaces",
     "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npm --workspace=@swipewise/api run db:migrate:deploy; fi && npm run build",
     "test": "vitest run",
@@ -38,6 +40,7 @@
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "prettier": "3.5.0",
+    "tsx": "4.23.15",
     "typescript": "5.7.3",
     "typescript-eslint": "8.24.0",
     "vitest": "3.0.5"

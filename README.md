@@ -35,10 +35,13 @@ People with multiple credit cards often use the wrong card, forget their perks, 
    ```
 
 4. **Start development servers:**
+   Starts both the website and the Express API server concurrently:
 
    ```bash
    npm run dev
    ```
+
+   (Alternatively, run `npm run dev:web` or `npm run dev:api` to start them individually.)
 
 5. **Run tests, linting, and build:**
    ```bash
