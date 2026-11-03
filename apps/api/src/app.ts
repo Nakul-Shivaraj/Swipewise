@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
+import { doubleCsrf } from "csrf-csrf";
 import { PrismaClient } from "@prisma/client";
 import {
   signupHandler,
@@ -31,6 +32,8 @@ export interface AppOptions {
   generalRateLimitMax?: number;
   prisma?: PrismaClient;
   schema?: string;
+  csrfSecret?: string;
+  enableCsrf?: boolean;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -54,6 +57,37 @@ export function createApp(options: AppOptions = {}) {
   app.use(cookieParser());
   app.use(express.json());
 
+  // CSRF protection setup (double-submit cookie pattern)
+  const csrfSecret =
+    options.csrfSecret ||
+    process.env.CSRF_SECRET ||
+    "swipewise-default-csrf-secret-minimum-32-chars-long";
+
+  const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+    getSecret: () => csrfSecret,
+    getSessionIdentifier: () => "",
+    cookieName: "x-csrf-token",
+    cookieOptions: {
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
+    size: 64,
+    ignoredMethods: ["GET", "HEAD", "OPTIONS"],
+    getCsrfTokenFromRequest: (req: Request) =>
+      req.headers["x-csrf-token"] as string | undefined,
+    errorConfig: {
+      statusCode: 403,
+      message: "Invalid or missing CSRF token.",
+      code: "EBADCSRFTOKEN",
+    },
+    skipCsrfProtection: (_req: Request) =>
+      options.enableCsrf !== undefined
+        ? !options.enableCsrf
+        : process.env.NODE_ENV === "test",
+  });
+
   // Health check endpoint (Issue #6)
   app.get("/api/health", async (_req: Request, res: Response) => {
     try {
@@ -63,6 +97,15 @@ export function createApp(options: AppOptions = {}) {
       res.status(503).json({ status: "error", db: "down" });
     }
   });
+
+  // Endpoint returning CSRF token for the frontend
+  app.get("/api/v1/csrf-token", (req: Request, res: Response) => {
+    const csrfToken = generateCsrfToken(req, res);
+    res.status(200).json({ csrfToken, token: csrfToken });
+  });
+
+  // CSRF protection for all state-changing requests
+  app.use(doubleCsrfProtection);
 
   // General Postgres-backed rate limiting for all /api/v1 routes
   const generalLimiter = rateLimit({
@@ -122,6 +165,22 @@ export function createApp(options: AppOptions = {}) {
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (
+      err &&
+      typeof err === "object" &&
+      (("code" in err && err.code === "EBADCSRFTOKEN") ||
+        ("status" in err && (err as { status: number }).status === 403) ||
+        ("statusCode" in err &&
+          (err as { statusCode: number }).statusCode === 403))
+    ) {
+      res.status(403).json({
+        error: {
+          code: "EBADCSRFTOKEN",
+          message: "Invalid or missing CSRF token.",
+        },
+      });
+      return;
+    }
     console.error(err);
     res.status(500).json({
       error: {

@@ -4,7 +4,12 @@ import { createApp } from "../app.js";
 import { prisma } from "../db.js";
 
 describe("CSRF Protection (js/missing-token-validation)", () => {
-  const app = createApp({ prisma, schema: "test", rateLimitMax: 100 });
+  const app = createApp({
+    prisma,
+    schema: "test",
+    enableCsrf: true,
+    rateLimitMax: 100,
+  });
 
   beforeEach(async () => {
     await prisma.user.deleteMany();

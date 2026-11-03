@@ -23,6 +23,7 @@ import {
   Check,
 } from "lucide-react";
 import { CardArt } from "../components/CardArt.js";
+import { apiFetch } from "../api.js";
 
 function getBestCategoryLabel(card: CatalogCard): string {
   const isCashBack = card.program.name.toLowerCase() === "cash back";
@@ -115,7 +116,7 @@ export function WalletPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/v1/auth/logout", { method: "POST" });
+      await apiFetch("/api/v1/auth/logout", { method: "POST" });
     } finally {
       navigate("/login");
     }
@@ -182,7 +183,7 @@ export function WalletPage() {
 
     setIsSubmittingAdd(true);
     try {
-      const res = await fetch("/api/v1/wallet/cards", {
+      const res = await apiFetch("/api/v1/wallet/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,7 +226,7 @@ export function WalletPage() {
 
     setIsSubmittingEdit(true);
     try {
-      const res = await fetch(`/api/v1/wallet/cards/${editingCard.id}`, {
+      const res = await apiFetch(`/api/v1/wallet/cards/${editingCard.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -260,7 +261,7 @@ export function WalletPage() {
 
     setIsSubmittingRemove(true);
     try {
-      const res = await fetch(`/api/v1/wallet/cards/${cardToRemove.id}`, {
+      const res = await apiFetch(`/api/v1/wallet/cards/${cardToRemove.id}`, {
         method: "DELETE",
       });
 

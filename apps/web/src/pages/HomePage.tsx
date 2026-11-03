@@ -21,6 +21,7 @@ import {
 import { LiquidIcon } from "../components/LiquidIcon.js";
 import { CardArt } from "../components/CardArt.js";
 import { BestCardRow, formatCardRateLabel } from "../components/BestCardRow.js";
+import { apiFetch } from "../api.js";
 
 interface CategoryOption {
   id: CategoryName;
@@ -155,7 +156,7 @@ export function HomePage() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/v1/auth/logout", { method: "POST" });
+      await apiFetch("/api/v1/auth/logout", { method: "POST" });
     } finally {
       navigate("/login");
     }

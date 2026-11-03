@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { loginRequestSchema, LoginRequest } from '@swipewise/shared';
-import { ShieldCheck, Sparkles, Lock, CreditCard } from 'lucide-react';
+import React, { useState } from "react";
+import { useNavigate, useLocation, Link } from "react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginRequestSchema, LoginRequest } from "@swipewise/shared";
+import { ShieldCheck, Sparkles, Lock, CreditCard } from "lucide-react";
+import { apiFetch } from "../api.js";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,21 +20,21 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginRequest>({
     resolver: zodResolver(loginRequestSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
   });
 
   const onSubmit = async (data: LoginRequest) => {
     setServerError(null);
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
+      const response = await apiFetch("/api/v1/auth/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
       });
@@ -42,34 +43,36 @@ export function LoginPage() {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 401) {
           setServerError({
-            code: 'INVALID_CREDENTIALS',
+            code: "INVALID_CREDENTIALS",
             message:
-              errorData.error?.message || 'Email or password is incorrect.',
+              errorData.error?.message || "Email or password is incorrect.",
           });
         } else if (response.status === 429) {
           setServerError({
-            code: 'RATE_LIMIT_EXCEEDED',
+            code: "RATE_LIMIT_EXCEEDED",
             message:
               errorData.error?.message ||
-              'Too many tries. Wait a minute and try again.',
+              "Too many tries. Wait a minute and try again.",
           });
         } else {
           setServerError({
-            code: 'SERVER_ERROR',
+            code: "SERVER_ERROR",
             message:
-              errorData.error?.message || 'Something went wrong. Try again.',
+              errorData.error?.message || "Something went wrong. Try again.",
           });
         }
         return;
       }
 
       // Success redirects to prior destination or /wallet
-      const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/wallet';
+      const from =
+        (location.state as { from?: { pathname?: string } })?.from?.pathname ||
+        "/wallet";
       navigate(from, { replace: true });
     } catch {
       setServerError({
-        code: 'NETWORK_ERROR',
-        message: 'Something went wrong. Try again.',
+        code: "NETWORK_ERROR",
+        message: "Something went wrong. Try again.",
       });
     }
   };
@@ -133,7 +136,8 @@ export function LoginPage() {
                   Best card for every purchase
                 </h2>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Instant smart rankings by store or category with zero guesswork.
+                  Instant smart rankings by store or category with zero
+                  guesswork.
                 </p>
               </div>
             </div>
@@ -147,7 +151,8 @@ export function LoginPage() {
                   Automatic perk & bonus tracking
                 </h2>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Never leave cash back, points, credits, or deadlines on the table.
+                  Never leave cash back, points, credits, or deadlines on the
+                  table.
                 </p>
               </div>
             </div>
@@ -161,7 +166,8 @@ export function LoginPage() {
                   Private and secure
                 </h2>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  No bank credentials, no full card numbers, and zero transaction access.
+                  No bank credentials, no full card numbers, and zero
+                  transaction access.
                 </p>
               </div>
             </div>
@@ -231,10 +237,10 @@ export function LoginPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="jane@example.com"
-                    aria-describedby={errors.email ? 'email-error' : undefined}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                     aria-invalid={!!errors.email}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('email')}
+                    {...register("email")}
                   />
                   {errors.email && (
                     <p
@@ -262,11 +268,11 @@ export function LoginPage() {
                     autoComplete="current-password"
                     placeholder="••••••••"
                     aria-describedby={
-                      errors.password ? 'password-error' : undefined
+                      errors.password ? "password-error" : undefined
                     }
                     aria-invalid={!!errors.password}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('password')}
+                    {...register("password")}
                   />
                   {errors.password && (
                     <p
