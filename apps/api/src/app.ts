@@ -12,12 +12,18 @@ import {
 } from "./controllers/auth.controller.js";
 import { getRecommendationsHandler } from "./controllers/recommendation.controller.js";
 import {
-  requireAuth,
-  AuthenticatedRequest,
-} from "./middleware/auth.middleware.js";
+  getCatalogCardsHandler,
+  getWalletCardsHandler,
+  addWalletCardHandler,
+  updateWalletCardHandler,
+  deleteWalletCardHandler,
+} from "./controllers/wallet.controller.js";
+import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
+import { WalletRepository } from "./repositories/wallet.repository.js";
+import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { prisma as defaultPrisma } from "./db.js";
 
 export interface AppOptions {
@@ -35,6 +41,8 @@ export function createApp(options: AppOptions = {}) {
 
   app.set("userRepo", new UserRepository(activePrisma));
   app.set("recommendationRepo", new RecommendationRepository(activePrisma));
+  app.set("walletRepo", new WalletRepository(activePrisma));
+  app.set("catalogRepo", new CatalogRepository(activePrisma));
 
   app.use(helmet());
   app.use(
@@ -100,13 +108,17 @@ export function createApp(options: AppOptions = {}) {
   // Best card by category recommendations (Issue #12)
   app.get("/api/v1/recommendations", requireAuth, getRecommendationsHandler);
 
-  // Protected wallet route example demonstrating auth guard
-  app.get("/api/v1/wallet", requireAuth, (req: Request, res: Response) => {
-    res.status(200).json({
-      message: "Wallet access granted",
-      user: (req as AuthenticatedRequest).user,
-    });
-  });
+  // Catalog routes (Issue #11)
+  app.get("/api/v1/catalog/cards", requireAuth, getCatalogCardsHandler);
+
+  // Wallet routes (Issue #11)
+  app.get("/api/v1/wallet/cards", requireAuth, getWalletCardsHandler);
+  app.post("/api/v1/wallet/cards", requireAuth, addWalletCardHandler);
+  app.patch("/api/v1/wallet/cards/:id", requireAuth, updateWalletCardHandler);
+  app.delete("/api/v1/wallet/cards/:id", requireAuth, deleteWalletCardHandler);
+
+  // Replaced placeholder /api/v1/wallet route
+  app.get("/api/v1/wallet", requireAuth, getWalletCardsHandler);
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

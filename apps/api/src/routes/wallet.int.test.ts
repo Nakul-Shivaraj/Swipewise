@@ -186,7 +186,7 @@ describe("Wallet API (US-02 / Issue #11)", () => {
         .post("/api/v1/wallet/cards")
         .set("Cookie", cookie)
         .send({
-          cardId: "11111111-2222-3333-4444-555555555555",
+          cardId: "123e4567-e89b-12d3-a456-426614174000",
         });
 
       expect(res.status).toBe(404);

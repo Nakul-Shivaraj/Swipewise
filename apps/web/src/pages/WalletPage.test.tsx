@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { WalletPage } from "./WalletPage.js";
@@ -233,14 +233,105 @@ describe("WalletPage (US-02 / Issue #11)", () => {
       ).toBeInTheDocument();
     });
 
-    // Click Confirm Remove
-    const confirmRemoveBtn = screen.getByRole("button", { name: /^remove$/i });
+    // Click Confirm Remove in dialog
+    const dialog = screen.getByRole("dialog");
+    const confirmRemoveBtn = within(dialog).getByRole("button", {
+      name: /^remove$/i,
+    });
     await userEvent.click(confirmRemoveBtn);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/v1/wallet/cards/wc-1",
         expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("AC2 & AC3: allows renaming card and rejects card numbers in nickname input", async () => {
+    let walletState = [...MOCK_WALLET.walletCards];
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          url.includes("/api/v1/wallet/cards") &&
+          (!init || init.method === "GET" || !init.method)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ walletCards: walletState }),
+          });
+        }
+        if (url.includes("/api/v1/catalog/cards")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(MOCK_CATALOG),
+          });
+        }
+        if (
+          url.includes("/api/v1/wallet/cards/wc-1") &&
+          init?.method === "PATCH"
+        ) {
+          const body = JSON.parse(init.body as string);
+          walletState = [
+            {
+              ...walletState[0]!,
+              nickname: body.nickname,
+            },
+          ];
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ walletCard: walletState[0] }),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <MemoryRouter>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Mint Everyday").length).toBeGreaterThan(0);
+    });
+
+    // Click Edit button
+    const editButtons = screen.getAllByRole("button", { name: /edit/i });
+    await userEvent.click(editButtons[0]!);
+
+    // Dialog appears
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/Rename card/i)).toBeInTheDocument();
+
+    const input = within(dialog).getByLabelText(/nickname/i);
+
+    // Try typing a card number -> should show rejection message
+    await userEvent.clear(input);
+    await userEvent.type(input, "4111111111111111");
+    expect(
+      within(dialog).getByText(
+        "Don't enter card numbers. SwipeWise only needs the card name.",
+      ),
+    ).toBeInTheDocument();
+
+    // Type a valid nickname and save
+    await userEvent.clear(input);
+    await userEvent.type(input, "Groceries & Supermarket");
+    const saveBtn = within(dialog).getByRole("button", { name: /save/i });
+    await userEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/wallet/cards/wc-1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ nickname: "Groceries & Supermarket" }),
+        }),
       );
     });
   });
