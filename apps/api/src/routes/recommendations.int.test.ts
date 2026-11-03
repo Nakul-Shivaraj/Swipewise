@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
 import { DEMO_CARDS, DEMO_PROGRAMS } from "../seed-data.js";
+import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 async function seedCatalogInTestDb() {
   for (const prog of DEMO_PROGRAMS) {
@@ -68,6 +69,27 @@ async function seedCatalogInTestDb() {
 describe("GET /api/v1/recommendations (US-03 / Issue #12)", () => {
   const app = createApp({ prisma, schema: "test", rateLimitMax: 100 });
 
+  async function registerUser(email: string, name: string) {
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const res = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name,
+        email,
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
+    const cookie = res.headers["set-cookie"]!;
+    return {
+      res,
+      cookie,
+      userId: res.body.user?.id as string,
+    };
+  }
+
   beforeEach(async () => {
     await prisma.walletCard.deleteMany();
     await prisma.rewardRule.deleteMany();
@@ -96,13 +118,7 @@ describe("GET /api/v1/recommendations (US-03 / Issue #12)", () => {
   });
 
   it("returns 400 when category or amountCents is invalid", async () => {
-    const signupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Priya Sharma",
-      email: "priya@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
-    const cookie = signupRes.headers["set-cookie"]!;
+    const { cookie } = await registerUser("priya@example.com", "Priya Sharma");
 
     const badCat = await request(app)
       .get("/api/v1/recommendations?category=INVALID")
@@ -127,14 +143,10 @@ describe("GET /api/v1/recommendations (US-03 / Issue #12)", () => {
   });
 
   it("AC1 & AC2: ranks the logged-in user wallet cards for GROCERIES on $100 (Mint Everyday $4.00, Basic Flat $1.50, Harbor Travel Plus $1.25)", async () => {
-    const signupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Priya Sharma",
-      email: "priya@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
-    const cookie = signupRes.headers["set-cookie"]!;
-    const userId = signupRes.body.user.id as string;
+    const { cookie, userId } = await registerUser(
+      "priya@example.com",
+      "Priya Sharma",
+    );
 
     const cards = await prisma.card.findMany();
     for (const card of cards) {
@@ -170,14 +182,10 @@ describe("GET /api/v1/recommendations (US-03 / Issue #12)", () => {
   });
 
   it("AC3: splits a purchase that crosses a spending cap and applies base rate to the amount over cap", async () => {
-    const signupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Cap Tester",
-      email: "captester@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
-    const cookie = signupRes.headers["set-cookie"]!;
-    const userId = signupRes.body.user.id as string;
+    const { cookie, userId } = await registerUser(
+      "captester@example.com",
+      "Cap Tester",
+    );
 
     const mintCard = await prisma.card.findUniqueOrThrow({
       where: { name: "Mint Everyday" },
@@ -223,30 +231,25 @@ describe("GET /api/v1/recommendations (US-03 / Issue #12)", () => {
 
   it("AC5: returns empty rankedCards with isEmptyWallet=true when wallet is empty, and scopes strictly to logged-in user", async () => {
     // User A has cards
-    const userARes = await request(app).post("/api/v1/auth/signup").send({
-      name: "User A",
-      email: "usera@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
+    const { userId: userAId } = await registerUser(
+      "usera@example.com",
+      "User A",
+    );
     const mintCard = await prisma.card.findUniqueOrThrow({
       where: { name: "Mint Everyday" },
     });
     await prisma.walletCard.create({
       data: {
-        userId: userARes.body.user.id,
+        userId: userAId,
         cardId: mintCard.id,
       },
     });
 
     // User B has no cards
-    const userBRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "User B",
-      email: "userb@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
-    const userBCookie = userBRes.headers["set-cookie"]!;
+    const { cookie: userBCookie } = await registerUser(
+      "userb@example.com",
+      "User B",
+    );
 
     const res = await request(app)
       .get("/api/v1/recommendations?category=GROCERIES")

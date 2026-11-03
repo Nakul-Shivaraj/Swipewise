@@ -33,7 +33,6 @@ export interface AppOptions {
   prisma?: PrismaClient;
   schema?: string;
   csrfSecret?: string;
-  enableCsrf?: boolean;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -82,10 +81,6 @@ export function createApp(options: AppOptions = {}) {
       message: "Invalid or missing CSRF token.",
       code: "EBADCSRFTOKEN",
     },
-    skipCsrfProtection: (_req: Request) =>
-      options.enableCsrf !== undefined
-        ? !options.enableCsrf
-        : process.env.NODE_ENV === "test",
   });
 
   // Health check endpoint (Issue #6)

@@ -7,7 +7,6 @@ describe("CSRF Protection (js/missing-token-validation)", () => {
   const app = createApp({
     prisma,
     schema: "test",
-    enableCsrf: true,
     rateLimitMax: 100,
   });
 

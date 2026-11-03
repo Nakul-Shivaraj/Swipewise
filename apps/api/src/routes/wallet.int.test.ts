@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
 import { DEMO_CARDS, DEMO_PROGRAMS } from "../seed-data.js";
+import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 async function seedCatalogInTestDb() {
   for (const prog of DEMO_PROGRAMS) {
@@ -88,13 +89,23 @@ describe("Wallet API (US-02 / Issue #11)", () => {
   });
 
   async function registerUser(email: string, name: string) {
-    const res = await request(app).post("/api/v1/auth/signup").send({
-      name,
-      email,
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
-    return res.headers["set-cookie"]!;
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const res = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name,
+        email,
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
+    const authCookie = res.headers["set-cookie"]![0]!.split(";")[0]!;
+    return {
+      cookies: `${authCookie}; ${csrfCookie}`,
+      csrfToken,
+    };
   }
 
   describe("GET /api/v1/catalog/cards", () => {
@@ -105,10 +116,10 @@ describe("Wallet API (US-02 / Issue #11)", () => {
     });
 
     it("returns catalog cards with name, issuer, artColor, rates", async () => {
-      const cookie = await registerUser("catalog@example.com", "Catalog User");
+      const user = await registerUser("catalog@example.com", "Catalog User");
       const res = await request(app)
         .get("/api/v1/catalog/cards")
-        .set("Cookie", cookie);
+        .set("Cookie", user.cookies);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body.cards)).toBe(true);
@@ -131,21 +142,28 @@ describe("Wallet API (US-02 / Issue #11)", () => {
 
   describe("POST /api/v1/wallet/cards", () => {
     it("returns 401 when not authenticated", async () => {
-      const res = await request(app).post("/api/v1/wallet/cards").send({
-        cardId: "00000000-0000-0000-0000-000000000000",
-      });
+      const { token: csrfToken, cookie: csrfCookie } =
+        await getCsrfTokenAndCookie(app);
+      const res = await request(app)
+        .post("/api/v1/wallet/cards")
+        .set("x-csrf-token", csrfToken)
+        .set("Cookie", csrfCookie)
+        .send({
+          cardId: "00000000-0000-0000-0000-000000000000",
+        });
       expect(res.status).toBe(401);
     });
 
     it("AC1: adds a card from catalog with optional nickname and open date", async () => {
-      const cookie = await registerUser("addcard@example.com", "Add Card User");
+      const user = await registerUser("addcard@example.com", "Add Card User");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
 
       const res = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({
           cardId: mintCard.id,
           nickname: "My Grocery Card",
@@ -160,14 +178,15 @@ describe("Wallet API (US-02 / Issue #11)", () => {
     });
 
     it("AC3: rejects nickname that contains a credit card number", async () => {
-      const cookie = await registerUser("luhncheck@example.com", "Luhn User");
+      const user = await registerUser("luhncheck@example.com", "Luhn User");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
 
       const res = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({
           cardId: mintCard.id,
           nickname: "Visa 4111111111111111",
@@ -178,13 +197,11 @@ describe("Wallet API (US-02 / Issue #11)", () => {
     });
 
     it("returns 404 when cardId does not exist in catalog", async () => {
-      const cookie = await registerUser(
-        "notfound@example.com",
-        "NotFound User",
-      );
+      const user = await registerUser("notfound@example.com", "NotFound User");
       const res = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({
           cardId: "123e4567-e89b-12d3-a456-426614174000",
         });
@@ -196,17 +213,17 @@ describe("Wallet API (US-02 / Issue #11)", () => {
 
   describe("GET /api/v1/wallet/cards", () => {
     it("returns empty array when user has no cards", async () => {
-      const cookie = await registerUser("empty@example.com", "Empty User");
+      const user = await registerUser("empty@example.com", "Empty User");
       const res = await request(app)
         .get("/api/v1/wallet/cards")
-        .set("Cookie", cookie);
+        .set("Cookie", user.cookies);
 
       expect(res.status).toBe(200);
       expect(res.body.walletCards).toEqual([]);
     });
 
     it("returns user cards with newest on top", async () => {
-      const cookie = await registerUser("order@example.com", "Order User");
+      const user = await registerUser("order@example.com", "Order User");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
@@ -216,19 +233,21 @@ describe("Wallet API (US-02 / Issue #11)", () => {
 
       await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ cardId: mintCard.id, nickname: "First Card" });
 
       await new Promise((r) => setTimeout(r, 20));
 
       await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ cardId: travelCard.id, nickname: "Second Card" });
 
       const res = await request(app)
         .get("/api/v1/wallet/cards")
-        .set("Cookie", cookie);
+        .set("Cookie", user.cookies);
 
       expect(res.status).toBe(200);
       expect(res.body.walletCards.length).toBe(2);
@@ -239,21 +258,23 @@ describe("Wallet API (US-02 / Issue #11)", () => {
 
   describe("PATCH /api/v1/wallet/cards/:id", () => {
     it("AC2: renames a wallet card", async () => {
-      const cookie = await registerUser("rename@example.com", "Rename User");
+      const user = await registerUser("rename@example.com", "Rename User");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
 
       const addRes = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ cardId: mintCard.id, nickname: "Original" });
 
       const walletCardId = addRes.body.walletCard.id;
 
       const patchRes = await request(app)
         .patch(`/api/v1/wallet/cards/${walletCardId}`)
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ nickname: "Renamed" });
 
       expect(patchRes.status).toBe(200);
@@ -261,21 +282,23 @@ describe("Wallet API (US-02 / Issue #11)", () => {
     });
 
     it("AC3: rejects card numbers in rename request", async () => {
-      const cookie = await registerUser("patchluhn@example.com", "Patch Luhn");
+      const user = await registerUser("patchluhn@example.com", "Patch Luhn");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
 
       const addRes = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ cardId: mintCard.id });
 
       const walletCardId = addRes.body.walletCard.id;
 
       const patchRes = await request(app)
         .patch(`/api/v1/wallet/cards/${walletCardId}`)
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ nickname: "4111 1111 1111 1111" });
 
       expect(patchRes.status).toBe(400);
@@ -285,35 +308,37 @@ describe("Wallet API (US-02 / Issue #11)", () => {
 
   describe("DELETE /api/v1/wallet/cards/:id", () => {
     it("AC2: removes a card from user's wallet", async () => {
-      const cookie = await registerUser("remove@example.com", "Remove User");
+      const user = await registerUser("remove@example.com", "Remove User");
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
       });
 
       const addRes = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", cookie)
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken)
         .send({ cardId: mintCard.id });
 
       const walletCardId = addRes.body.walletCard.id;
 
       const delRes = await request(app)
         .delete(`/api/v1/wallet/cards/${walletCardId}`)
-        .set("Cookie", cookie);
+        .set("Cookie", user.cookies)
+        .set("x-csrf-token", user.csrfToken);
 
       expect(delRes.status).toBe(200);
 
       const listRes = await request(app)
         .get("/api/v1/wallet/cards")
-        .set("Cookie", cookie);
+        .set("Cookie", user.cookies);
       expect(listRes.body.walletCards).toEqual([]);
     });
   });
 
   describe("AC6: Multi-tenant Isolation", () => {
     it("User A cannot read, change, or delete User B's wallet cards (returns 404)", async () => {
-      const userACookie = await registerUser("usera@example.com", "User A");
-      const userBCookie = await registerUser("userb@example.com", "User B");
+      const userA = await registerUser("usera@example.com", "User A");
+      const userB = await registerUser("userb@example.com", "User B");
 
       const mintCard = await prisma.card.findUniqueOrThrow({
         where: { name: "Mint Everyday" },
@@ -322,7 +347,8 @@ describe("Wallet API (US-02 / Issue #11)", () => {
       // User B adds a card to User B's wallet
       const addRes = await request(app)
         .post("/api/v1/wallet/cards")
-        .set("Cookie", userBCookie)
+        .set("Cookie", userB.cookies)
+        .set("x-csrf-token", userB.csrfToken)
         .send({ cardId: mintCard.id, nickname: "User B Private Card" });
 
       const userBWalletCardId = addRes.body.walletCard.id;
@@ -330,14 +356,15 @@ describe("Wallet API (US-02 / Issue #11)", () => {
       // 1. User A lists cards -> does NOT see User B's card
       const listRes = await request(app)
         .get("/api/v1/wallet/cards")
-        .set("Cookie", userACookie);
+        .set("Cookie", userA.cookies);
       expect(listRes.status).toBe(200);
       expect(listRes.body.walletCards).toHaveLength(0);
 
       // 2. User A attempts to PATCH User B's card -> 404
       const patchRes = await request(app)
         .patch(`/api/v1/wallet/cards/${userBWalletCardId}`)
-        .set("Cookie", userACookie)
+        .set("Cookie", userA.cookies)
+        .set("x-csrf-token", userA.csrfToken)
         .send({ nickname: "Hacked Nickname" });
       expect(patchRes.status).toBe(404);
       expect(patchRes.body.error.code).toBe("NOT_FOUND");
@@ -345,14 +372,15 @@ describe("Wallet API (US-02 / Issue #11)", () => {
       // 3. User A attempts to DELETE User B's card -> 404
       const deleteRes = await request(app)
         .delete(`/api/v1/wallet/cards/${userBWalletCardId}`)
-        .set("Cookie", userACookie);
+        .set("Cookie", userA.cookies)
+        .set("x-csrf-token", userA.csrfToken);
       expect(deleteRes.status).toBe(404);
       expect(deleteRes.body.error.code).toBe("NOT_FOUND");
 
       // Verify User B's card is unchanged and still in User B's wallet
       const verifyRes = await request(app)
         .get("/api/v1/wallet/cards")
-        .set("Cookie", userBCookie);
+        .set("Cookie", userB.cookies);
       expect(verifyRes.status).toBe(200);
       expect(verifyRes.body.walletCards).toHaveLength(1);
       expect(verifyRes.body.walletCards[0].id).toBe(userBWalletCardId);

@@ -3,6 +3,7 @@ import request from "supertest";
 import argon2 from "argon2";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
+import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 describe("Auth Integration Tests (US-01 / Issue #10)", () => {
   const app = createApp({ prisma, schema: "test", rateLimitMax: 100 });
@@ -20,12 +21,18 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
   });
 
   it("AC1: sign up saves the user to PostgreSQL via Prisma (argon2id, lowercase email, 409 if exists)", async () => {
-    const res = await request(app).post("/api/v1/auth/signup").send({
-      name: "Integration User",
-      email: "INTEGRATION@Example.COM",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const res = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name: "Integration User",
+        email: "INTEGRATION@Example.COM",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.user.email).toBe("integration@example.com");
@@ -55,12 +62,16 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     expect(matches).toBe(true);
 
     // Duplicate email returns 409
-    const dupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Another User",
-      email: "integration@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
+    const dupRes = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name: "Another User",
+        email: "integration@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
     expect(dupRes.status).toBe(409);
     expect(dupRes.body.error.code).toBe("EMAIL_ALREADY_EXISTS");
     expect(dupRes.body.error.message).toBe(
@@ -79,11 +90,18 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
       },
     });
 
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+
     // Wrong password -> 401 with generic error
-    const wrongPassRes = await request(app).post("/api/v1/auth/login").send({
-      email: "login@example.com",
-      password: "WrongPassword999",
-    });
+    const wrongPassRes = await request(app)
+      .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        email: "login@example.com",
+        password: "WrongPassword999",
+      });
     expect(wrongPassRes.status).toBe(401);
     expect(wrongPassRes.body).toEqual({
       error: {
@@ -93,10 +111,14 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     });
 
     // Non-existent email -> same generic error (never reveal whether email exists)
-    const nonExistentRes = await request(app).post("/api/v1/auth/login").send({
-      email: "nobody@example.com",
-      password: "Secret123",
-    });
+    const nonExistentRes = await request(app)
+      .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        email: "nobody@example.com",
+        password: "Secret123",
+      });
     expect(nonExistentRes.status).toBe(401);
     expect(nonExistentRes.body).toEqual({
       error: {
@@ -106,10 +128,14 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     });
 
     // Correct credentials (case-insensitive email) -> 200 and auth cookie
-    const validRes = await request(app).post("/api/v1/auth/login").send({
-      email: "LOGIN@EXAMPLE.COM",
-      password: "Secret123",
-    });
+    const validRes = await request(app)
+      .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        email: "LOGIN@EXAMPLE.COM",
+        password: "Secret123",
+      });
     expect(validRes.status).toBe(200);
     expect(validRes.body.user.email).toBe("login@example.com");
     expect(validRes.body.user.name).toBe("Login User");
@@ -123,7 +149,12 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
   });
 
   it("AC3: log out clears the auth cookie", async () => {
-    const res = await request(app).post("/api/v1/auth/logout");
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const res = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Logged out successfully.");
 
@@ -140,12 +171,18 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     expect(unauthRes.body.error.code).toBe("UNAUTHORIZED");
 
     // Sign up to get cookie
-    const signupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Me User",
-      email: "me@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const signupRes = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name: "Me User",
+        email: "me@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
     const cookieHeader = signupRes.headers["set-cookie"]!;
 
     // Authenticated request
@@ -164,12 +201,18 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     expect(res.body.error.code).toBe("UNAUTHORIZED");
 
     // Authenticated request
-    const signupRes = await request(app).post("/api/v1/auth/signup").send({
-      name: "Wallet User",
-      email: "wallet@example.com",
-      password: "Password123",
-      confirmPassword: "Password123",
-    });
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(app);
+    const signupRes = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        name: "Wallet User",
+        email: "wallet@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
     const cookieHeader = signupRes.headers["set-cookie"]!;
 
     const authRes = await request(app)
@@ -180,10 +223,14 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
 
   it("AC5: rate limits auth requests and stores limit counts in Postgres", async () => {
     const limitedApp = createApp({ prisma, schema: "test", rateLimitMax: 3 });
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(limitedApp);
 
     for (let i = 0; i < 3; i++) {
       const res = await request(limitedApp)
         .post("/api/v1/auth/login")
+        .set("x-csrf-token", csrfToken)
+        .set("Cookie", csrfCookie)
         .send({
           email: `ratelimit${i}@example.com`,
           password: "Password123",
@@ -194,6 +241,8 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
     // 4th request must be rate limited
     const blockedRes = await request(limitedApp)
       .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
       .send({
         email: "ratelimit3@example.com",
         password: "Password123",
@@ -218,9 +267,13 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
       rateLimitMax: 100,
       generalRateLimitMax: 3,
     });
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(limitedApp);
 
     const signupRes = await request(limitedApp)
       .post("/api/v1/auth/signup")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
       .send({
         name: "Wallet Rate Limit User",
         email: "walletratelimit@example.com",
