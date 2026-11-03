@@ -1,8 +1,8 @@
 export function isCardNumber(input: string): boolean {
   if (!input) return false;
   // Look for any contiguous sequence of 13-19 digits (with optional spaces or dashes)
-  const cleaned = input.replace(/[\s-]/g, '');
-  const match = cleaned.match(/\b\d{13,19}\b/) || (cleaned.length >= 13 && cleaned.length <= 19 && /^\d+$/.test(cleaned) ? [cleaned] : null);
+  const cleaned = input.replace(/[\s-]/g, "");
+  const match = cleaned.match(/\d{13,19}/);
 
   if (!match) return false;
 
