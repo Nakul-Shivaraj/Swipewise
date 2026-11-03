@@ -1,18 +1,26 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router';
-import { SignUpPage } from './pages/SignUpPage.js';
-import { LoginPage } from './pages/LoginPage.js';
-import { AuthGuard } from './components/AuthGuard.js';
-import { CreditCard, PlusCircle } from 'lucide-react';
+import React from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+  useNavigate,
+} from "react-router";
+import { SignUpPage } from "./pages/SignUpPage.js";
+import { LoginPage } from "./pages/LoginPage.js";
+import { HomePage } from "./pages/HomePage.js";
+import { AuthGuard } from "./components/AuthGuard.js";
+import { CreditCard, PlusCircle } from "lucide-react";
 
 function WalletPage() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/v1/auth/logout', { method: 'POST' });
+      await fetch("/api/v1/auth/logout", { method: "POST" });
     } finally {
-      navigate('/login');
+      navigate("/login");
     }
   };
 
@@ -55,6 +63,14 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <HomePage />
+            </AuthGuard>
+          }
+        />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -65,7 +81,7 @@ export function App() {
             </AuthGuard>
           }
         />
-        <Route path="*" element={<Navigate to="/signup" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
