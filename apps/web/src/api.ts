@@ -54,6 +54,33 @@ export async function apiFetch(
   });
 
   if (response.status === 403) {
+    let isCsrfError = false;
+    try {
+      const cloned =
+        typeof response.clone === "function" ? response.clone() : response;
+      const body = await cloned.json();
+      if (body?.error?.code === "EBADCSRFTOKEN") {
+        isCsrfError = true;
+      }
+    } catch {
+      // Non-JSON response or clone not available
+    }
+
+    if (isCsrfError) {
+      cachedCsrfToken = null;
+      const freshToken = await getCsrfToken();
+      const retryHeaders: Record<string, string> = { ...headers };
+      if (freshToken) {
+        retryHeaders["x-csrf-token"] = freshToken;
+      } else {
+        delete retryHeaders["x-csrf-token"];
+      }
+      return fetch(url, {
+        ...options,
+        headers: retryHeaders,
+      });
+    }
+
     cachedCsrfToken = null;
   }
 

@@ -40,25 +40,20 @@ export function LoginPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
         if (response.status === 401) {
           setServerError({
             code: "INVALID_CREDENTIALS",
-            message:
-              errorData.error?.message || "Email or password is incorrect.",
+            message: "Email or password is incorrect.",
           });
         } else if (response.status === 429) {
           setServerError({
             code: "RATE_LIMIT_EXCEEDED",
-            message:
-              errorData.error?.message ||
-              "Too many tries. Wait a minute and try again.",
+            message: "Too many tries. Wait a minute and try again.",
           });
         } else {
           setServerError({
             code: "SERVER_ERROR",
-            message:
-              errorData.error?.message || "Something went wrong. Try again.",
+            message: "Something went wrong. Try again.",
           });
         }
         return;

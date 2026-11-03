@@ -49,26 +49,21 @@ export function SignUpPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
         if (response.status === 409) {
           setServerError({
             code: "EMAIL_ALREADY_EXISTS",
             message:
-              errorData.error?.message ||
               "An account with this email already exists. Log in instead?",
           });
         } else if (response.status === 429) {
           setServerError({
             code: "RATE_LIMIT_EXCEEDED",
-            message:
-              errorData.error?.message ||
-              "Too many tries. Wait a minute and try again.",
+            message: "Too many tries. Wait a minute and try again.",
           });
         } else {
           setServerError({
             code: "SERVER_ERROR",
-            message:
-              errorData.error?.message || "Something went wrong. Try again.",
+            message: "Something went wrong. Try again.",
           });
         }
         return;
@@ -227,16 +222,18 @@ export function SignUpPage() {
               >
                 <div className="shrink-0 mt-0.5">⚠️</div>
                 <div className="flex-1">
-                  {serverError.message}
-                  {serverError.code === "EMAIL_ALREADY_EXISTS" && (
-                    <div className="mt-1">
+                  {serverError.code === "EMAIL_ALREADY_EXISTS" ? (
+                    <p>
+                      An account with this email already exists.{" "}
                       <Link
                         to="/login"
                         className="underline font-semibold hover:text-error/80"
                       >
-                        Log in here
+                        Log in instead?
                       </Link>
-                    </div>
+                    </p>
+                  ) : (
+                    <p>{serverError.message}</p>
                   )}
                 </div>
               </div>
