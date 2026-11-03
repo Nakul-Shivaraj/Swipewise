@@ -218,3 +218,139 @@ describe("HomePage — Best card by category (US-03 / Issue #12)", () => {
     });
   });
 });
+
+describe("HomePage — Store search (US-04 / Issue #13)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each(["SAFEWAY", "safeway", "safeway.com"])(
+    'AC1 & AC2: searching "%s" finds Safeway (Groceries) and ranks Mint Everyday first at $4.00 on $100 with Demo labels',
+    async (query) => {
+      const user = userEvent.setup();
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.startsWith("/api/v1/stores/search")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              stores: [
+                {
+                  id: "store-safeway",
+                  name: "Safeway",
+                  category: "GROCERIES",
+                  aliases: ["Safeway Grocery", "safeway.com"],
+                },
+              ],
+            }),
+          } as Response;
+        }
+        if (url.startsWith("/api/v1/recommendations")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => MOCK_GROCERIES_RESPONSE,
+          } as Response;
+        }
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      });
+
+      render(
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>,
+      );
+
+      const searchInput = screen.getByLabelText(/Search a store/i);
+      await user.clear(searchInput);
+      await user.type(searchInput, query);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/v1/stores/search?q=${encodeURIComponent(query)}`,
+        );
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/v1/recommendations?category=GROCERIES&amountCents=10000",
+        );
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByText(
+            /Your cards at Safeway|All your cards at Safeway/i,
+          ).length,
+        ).toBeGreaterThan(0);
+        expect(screen.getAllByText("Mint Everyday").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("$4.00").length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/^Demo$/i).length).toBeGreaterThan(0);
+      });
+    },
+  );
+
+  it('AC3: a search with no match shows "We don\'t know this store yet. Pick a category." and lets the user pick a category manually', async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.startsWith("/api/v1/stores/search")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ stores: [] }),
+        } as Response;
+      }
+      if (url.startsWith("/api/v1/recommendations")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => MOCK_GROCERIES_RESPONSE,
+        } as Response;
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    const searchInput = screen.getByLabelText(/Search a store/i);
+    await user.type(searchInput, "UnknownMart");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/We don't know this store yet\. Pick a category\./i),
+      ).toBeInTheDocument();
+    });
+
+    const groceriesButtons = screen.getAllByRole("button", {
+      name: /Groceries/i,
+    });
+    await user.click(groceriesButtons[0]!);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/v1/recommendations?category=GROCERIES&amountCents=10000",
+      );
+      expect(screen.getAllByText("Mint Everyday").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("$4.00").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("AC5: pressing '/' on the page focuses the store search input", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    const searchInput = screen.getByLabelText(/Search a store/i);
+    expect(searchInput).not.toHaveFocus();
+
+    await user.keyboard("/");
+    expect(searchInput).toHaveFocus();
+  });
+});
