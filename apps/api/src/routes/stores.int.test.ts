@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
 import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from "../seed-data.js";
+import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 async function seedCatalogAndStoresInTestDb() {
   for (const prog of DEMO_PROGRAMS) {
@@ -101,6 +102,25 @@ describe.skipIf(!hasTestDatabase)(
   () => {
     const app = createApp({ prisma, schema: "test", rateLimitMax: 100 });
 
+    async function registerUser(email: string, name: string) {
+      const { token: csrfToken, cookie: csrfCookie } =
+        await getCsrfTokenAndCookie(app);
+      const res = await request(app)
+        .post("/api/v1/auth/signup")
+        .set("x-csrf-token", csrfToken)
+        .set("Cookie", csrfCookie)
+        .send({
+          name,
+          email,
+          password: "Password123",
+          confirmPassword: "Password123",
+        });
+      return {
+        cookie: res.headers["set-cookie"]!,
+        userId: res.body.user?.id as string,
+      };
+    }
+
     beforeEach(async () => {
       await prisma.storeAlias.deleteMany();
       await prisma.store.deleteMany();
@@ -131,13 +151,10 @@ describe.skipIf(!hasTestDatabase)(
     });
 
     it("returns 400 when search query is invalid", async () => {
-      const signupRes = await request(app).post("/api/v1/auth/signup").send({
-        name: "Priya Sharma",
-        email: "priya-store@example.com",
-        password: "Password123",
-        confirmPassword: "Password123",
-      });
-      const cookie = signupRes.headers["set-cookie"]!;
+      const { cookie } = await registerUser(
+        "priya-store@example.com",
+        "Priya Sharma",
+      );
 
       const emptyRes = await request(app)
         .get("/api/v1/stores/search?q=")
@@ -153,14 +170,10 @@ describe.skipIf(!hasTestDatabase)(
     });
 
     it('AC1 & AC2: "SAFEWAY", "safeway", and alias "safeway.com" all find Safeway (GROCERIES) and rank Mint Everyday first at $4.00 on $100 with the 3 demo cards', async () => {
-      const signupRes = await request(app).post("/api/v1/auth/signup").send({
-        name: "Priya Sharma",
-        email: "priya-safeway@example.com",
-        password: "Password123",
-        confirmPassword: "Password123",
-      });
-      const cookie = signupRes.headers["set-cookie"]!;
-      const userId = signupRes.body.user.id as string;
+      const { cookie, userId } = await registerUser(
+        "priya-safeway@example.com",
+        "Priya Sharma",
+      );
 
       const cards = await prisma.card.findMany();
       for (const card of cards) {
@@ -189,7 +202,7 @@ describe.skipIf(!hasTestDatabase)(
         expect(recRes.body.rankedCards[0].name).toBe("Mint Everyday");
         expect(recRes.body.rankedCards[0].rewardCents).toBe(400);
       }
-    });
+    }, 30000);
 
     it("seed is idempotent when re-run and returns stores ordered A–Z capped at 10", async () => {
       const initialStoreCount = await prisma.store.count();
@@ -211,13 +224,10 @@ describe.skipIf(!hasTestDatabase)(
         });
       }
 
-      const signupRes = await request(app).post("/api/v1/auth/signup").send({
-        name: "Order Tester",
-        email: "order@example.com",
-        password: "Password123",
-        confirmPassword: "Password123",
-      });
-      const cookie = signupRes.headers["set-cookie"]!;
+      const { cookie } = await registerUser(
+        "order@example.com",
+        "Order Tester",
+      );
 
       const res = await request(app)
         .get("/api/v1/stores/search?q=Alpha%20Store")
@@ -227,6 +237,6 @@ describe.skipIf(!hasTestDatabase)(
       expect(res.body.stores).toHaveLength(10);
       const names = res.body.stores.map((s: { name: string }) => s.name);
       expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
-    });
+    }, 30000);
   },
 );

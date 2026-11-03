@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
+import { doubleCsrf } from "csrf-csrf";
 import { PrismaClient } from "@prisma/client";
 import {
   signupHandler,
@@ -13,12 +14,18 @@ import {
 import { getRecommendationsHandler } from "./controllers/recommendation.controller.js";
 import { searchStoresHandler } from "./controllers/store.controller.js";
 import {
-  requireAuth,
-  AuthenticatedRequest,
-} from "./middleware/auth.middleware.js";
+  getCatalogCardsHandler,
+  getWalletCardsHandler,
+  addWalletCardHandler,
+  updateWalletCardHandler,
+  deleteWalletCardHandler,
+} from "./controllers/wallet.controller.js";
+import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
+import { WalletRepository } from "./repositories/wallet.repository.js";
+import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { StoreRepository } from "./repositories/store.repository.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -27,6 +34,7 @@ export interface AppOptions {
   generalRateLimitMax?: number;
   prisma?: PrismaClient;
   schema?: string;
+  csrfSecret?: string;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -37,6 +45,8 @@ export function createApp(options: AppOptions = {}) {
 
   app.set("userRepo", new UserRepository(activePrisma));
   app.set("recommendationRepo", new RecommendationRepository(activePrisma));
+  app.set("walletRepo", new WalletRepository(activePrisma));
+  app.set("catalogRepo", new CatalogRepository(activePrisma));
   app.set("storeRepo", new StoreRepository(activePrisma));
 
   app.use(helmet());
@@ -49,6 +59,33 @@ export function createApp(options: AppOptions = {}) {
   app.use(cookieParser());
   app.use(express.json());
 
+  // CSRF protection setup (double-submit cookie pattern)
+  const csrfSecret =
+    options.csrfSecret ||
+    process.env.CSRF_SECRET ||
+    "swipewise-default-csrf-secret-minimum-32-chars-long";
+
+  const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+    getSecret: () => csrfSecret,
+    getSessionIdentifier: () => "",
+    cookieName: "x-csrf-token",
+    cookieOptions: {
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
+    size: 64,
+    ignoredMethods: ["GET", "HEAD", "OPTIONS"],
+    getCsrfTokenFromRequest: (req: Request) =>
+      req.headers["x-csrf-token"] as string | undefined,
+    errorConfig: {
+      statusCode: 403,
+      message: "Invalid or missing CSRF token.",
+      code: "EBADCSRFTOKEN",
+    },
+  });
+
   // Health check endpoint (Issue #6)
   app.get("/api/health", async (_req: Request, res: Response) => {
     try {
@@ -58,6 +95,15 @@ export function createApp(options: AppOptions = {}) {
       res.status(503).json({ status: "error", db: "down" });
     }
   });
+
+  // Endpoint returning CSRF token for the frontend
+  app.get("/api/v1/csrf-token", (req: Request, res: Response) => {
+    const csrfToken = generateCsrfToken(req, res);
+    res.status(200).json({ csrfToken, token: csrfToken });
+  });
+
+  // CSRF protection for all state-changing requests
+  app.use(doubleCsrfProtection);
 
   // General Postgres-backed rate limiting for all /api/v1 routes
   const generalLimiter = rateLimit({
@@ -107,16 +153,36 @@ export function createApp(options: AppOptions = {}) {
   app.get("/api/v1/stores/search", requireAuth, searchStoresHandler);
   app.get("/api/v1/stores", requireAuth, searchStoresHandler);
 
-  // Protected wallet route example demonstrating auth guard
-  app.get("/api/v1/wallet", requireAuth, (req: Request, res: Response) => {
-    res.status(200).json({
-      message: "Wallet access granted",
-      user: (req as AuthenticatedRequest).user,
-    });
-  });
+  // Catalog routes (Issue #11)
+  app.get("/api/v1/catalog/cards", requireAuth, getCatalogCardsHandler);
+
+  // Wallet routes (Issue #11)
+  app.get("/api/v1/wallet/cards", requireAuth, getWalletCardsHandler);
+  app.post("/api/v1/wallet/cards", requireAuth, addWalletCardHandler);
+  app.patch("/api/v1/wallet/cards/:id", requireAuth, updateWalletCardHandler);
+  app.delete("/api/v1/wallet/cards/:id", requireAuth, deleteWalletCardHandler);
+
+  // Replaced placeholder /api/v1/wallet route
+  app.get("/api/v1/wallet", requireAuth, getWalletCardsHandler);
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (
+      err &&
+      typeof err === "object" &&
+      (("code" in err && err.code === "EBADCSRFTOKEN") ||
+        ("status" in err && (err as { status: number }).status === 403) ||
+        ("statusCode" in err &&
+          (err as { statusCode: number }).statusCode === 403))
+    ) {
+      res.status(403).json({
+        error: {
+          code: "EBADCSRFTOKEN",
+          message: "Invalid or missing CSRF token.",
+        },
+      });
+      return;
+    }
     console.error(err);
     res.status(500).json({
       error: {

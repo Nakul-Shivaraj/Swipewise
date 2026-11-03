@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   signupRequestSchema,
   SignupRequest,
   calculatePasswordStrength,
-} from '@swipewise/shared';
-import { ShieldCheck, Sparkles, Lock, CreditCard } from 'lucide-react';
+} from "@swipewise/shared";
+import { ShieldCheck, Sparkles, Lock, CreditCard } from "lucide-react";
+import { apiFetch } from "../api.js";
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -23,26 +24,26 @@ export function SignUpPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignupRequest>({
     resolver: zodResolver(signupRequestSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
-  const passwordValue = watch('password') || '';
+  const passwordValue = watch("password") || "";
   const strength = calculatePasswordStrength(passwordValue);
 
   const onSubmit = async (data: SignupRequest) => {
     setServerError(null);
     try {
-      const response = await fetch('/api/v1/auth/signup', {
-        method: 'POST',
+      const response = await apiFetch("/api/v1/auth/signup", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
       });
@@ -51,34 +52,34 @@ export function SignUpPage() {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 409) {
           setServerError({
-            code: 'EMAIL_ALREADY_EXISTS',
+            code: "EMAIL_ALREADY_EXISTS",
             message:
               errorData.error?.message ||
-              'An account with this email already exists. Log in instead?',
+              "An account with this email already exists. Log in instead?",
           });
         } else if (response.status === 429) {
           setServerError({
-            code: 'RATE_LIMIT_EXCEEDED',
+            code: "RATE_LIMIT_EXCEEDED",
             message:
               errorData.error?.message ||
-              'Too many tries. Wait a minute and try again.',
+              "Too many tries. Wait a minute and try again.",
           });
         } else {
           setServerError({
-            code: 'SERVER_ERROR',
+            code: "SERVER_ERROR",
             message:
-              errorData.error?.message || 'Something went wrong. Try again.',
+              errorData.error?.message || "Something went wrong. Try again.",
           });
         }
         return;
       }
 
       // Success redirects to Wallet empty state
-      navigate('/wallet');
+      navigate("/wallet");
     } catch (_err) {
       setServerError({
-        code: 'NETWORK_ERROR',
-        message: 'Something went wrong. Try again.',
+        code: "NETWORK_ERROR",
+        message: "Something went wrong. Try again.",
       });
     }
   };
@@ -227,7 +228,7 @@ export function SignUpPage() {
                 <div className="shrink-0 mt-0.5">⚠️</div>
                 <div className="flex-1">
                   {serverError.message}
-                  {serverError.code === 'EMAIL_ALREADY_EXISTS' && (
+                  {serverError.code === "EMAIL_ALREADY_EXISTS" && (
                     <div className="mt-1">
                       <Link
                         to="/login"
@@ -257,10 +258,10 @@ export function SignUpPage() {
                     type="text"
                     autoComplete="name"
                     placeholder="Jane Doe"
-                    aria-describedby={errors.name ? 'name-error' : undefined}
+                    aria-describedby={errors.name ? "name-error" : undefined}
                     aria-invalid={!!errors.name}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('name')}
+                    {...register("name")}
                   />
                   {errors.name && (
                     <p
@@ -287,10 +288,10 @@ export function SignUpPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="jane@example.com"
-                    aria-describedby={errors.email ? 'email-error' : undefined}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                     aria-invalid={!!errors.email}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('email')}
+                    {...register("email")}
                   />
                   {errors.email && (
                     <p
@@ -318,11 +319,11 @@ export function SignUpPage() {
                     autoComplete="new-password"
                     placeholder="••••••••"
                     aria-describedby={
-                      errors.password ? 'password-error' : undefined
+                      errors.password ? "password-error" : undefined
                     }
                     aria-invalid={!!errors.password}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('password')}
+                    {...register("password")}
                   />
                   {errors.password && (
                     <p
@@ -351,12 +352,12 @@ export function SignUpPage() {
                     placeholder="••••••••"
                     aria-describedby={
                       errors.confirmPassword
-                        ? 'confirm-password-error'
+                        ? "confirm-password-error"
                         : undefined
                     }
                     aria-invalid={!!errors.confirmPassword}
                     className="mt-1 block w-full bg-transparent text-[15px] font-medium text-ink placeholder:text-ink-muted/50 focus:outline-none"
-                    {...register('confirmPassword')}
+                    {...register("confirmPassword")}
                   />
                   {errors.confirmPassword && (
                     <p
@@ -378,8 +379,8 @@ export function SignUpPage() {
                   <span
                     className={
                       strength.score >= 4
-                        ? 'text-primary font-semibold'
-                        : 'text-ink-muted font-semibold'
+                        ? "text-primary font-semibold"
+                        : "text-ink-muted font-semibold"
                     }
                   >
                     {strength.label}
@@ -390,9 +391,7 @@ export function SignUpPage() {
                     <div
                       key={seg}
                       className={`h-full rounded-full transition-all duration-300 ${
-                        strength.score >= seg
-                          ? 'bg-primary'
-                          : 'bg-ink-muted/20'
+                        strength.score >= seg ? "bg-primary" : "bg-ink-muted/20"
                       }`}
                     />
                   ))}
@@ -449,7 +448,9 @@ export function SignUpPage() {
       {/* Website footer */}
       <footer className="mt-12 py-6 border-t border-glass/60 bg-glass/20 backdrop-blur-md text-center text-xs text-ink-muted">
         <div className="max-w-[1120px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div>© {new Date().getFullYear()} SwipeWise. All rights reserved.</div>
+          <div>
+            © {new Date().getFullYear()} SwipeWise. All rights reserved.
+          </div>
           <div className="flex gap-4">
             <span className="hover:underline cursor-pointer">Privacy</span>
             <span className="hover:underline cursor-pointer">Terms</span>

@@ -40,6 +40,7 @@ npm workspaces: `apps/web` (frontend), `apps/api` (backend), `packages/shared` (
 | argon2                                                    | Password hashing                                                       |
 | jose                                                      | Signing and checking JWTs                                              |
 | cookie-parser                                             | Reading the auth cookie                                                |
+| csrf-csrf (4.0.3)                                         | Double-submit cookie CSRF protection                                   |
 | helmet                                                    | Security headers                                                       |
 | cors                                                      | Allow only our frontend origin                                         |
 | express-rate-limit                                        | Rate limiting, especially auth routes                                  |
