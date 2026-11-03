@@ -12,6 +12,7 @@ import {
   meHandler,
 } from "./controllers/auth.controller.js";
 import { getRecommendationsHandler } from "./controllers/recommendation.controller.js";
+import { searchStoresHandler } from "./controllers/store.controller.js";
 import {
   getCatalogCardsHandler,
   getWalletCardsHandler,
@@ -25,6 +26,7 @@ import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
 import { WalletRepository } from "./repositories/wallet.repository.js";
 import { CatalogRepository } from "./repositories/catalog.repository.js";
+import { StoreRepository } from "./repositories/store.repository.js";
 import { prisma as defaultPrisma } from "./db.js";
 
 export interface AppOptions {
@@ -45,6 +47,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("recommendationRepo", new RecommendationRepository(activePrisma));
   app.set("walletRepo", new WalletRepository(activePrisma));
   app.set("catalogRepo", new CatalogRepository(activePrisma));
+  app.set("storeRepo", new StoreRepository(activePrisma));
 
   app.use(helmet());
   app.use(
@@ -145,6 +148,10 @@ export function createApp(options: AppOptions = {}) {
 
   // Best card by category recommendations (Issue #12)
   app.get("/api/v1/recommendations", requireAuth, getRecommendationsHandler);
+
+  // Store search (Issue #13)
+  app.get("/api/v1/stores/search", requireAuth, searchStoresHandler);
+  app.get("/api/v1/stores", requireAuth, searchStoresHandler);
 
   // Catalog routes (Issue #11)
   app.get("/api/v1/catalog/cards", requireAuth, getCatalogCardsHandler);

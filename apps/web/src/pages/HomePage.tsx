@@ -6,6 +6,8 @@ import {
   MAX_PURCHASE_AMOUNT_CENTS,
   MIN_PURCHASE_AMOUNT_CENTS,
   RecommendationsResponse,
+  StoreSearchResponse,
+  StoreSearchResult,
   formatCents,
   isCardNumber,
   parseDollarsToCents,
@@ -38,8 +40,17 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
 export function HomePage() {
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const suppressNextSearchRef = useRef(false);
 
   const [storeQuery, setStoreQuery] = useState("");
+  const [storeSuggestions, setStoreSuggestions] = useState<StoreSearchResult[]>(
+    [],
+  );
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [hasSearchedStores, setHasSearchedStores] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<StoreSearchResult | null>(
+    null,
+  );
   const [amountInput, setAmountInput] = useState("100");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategoryName | null>(
@@ -94,6 +105,68 @@ export function HomePage() {
     [],
   );
 
+  // Debounced store search (250ms, triggers after 2 characters)
+  useEffect(() => {
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+
+    const trimmed = storeQuery.trim();
+    if (trimmed.length < 2 || isCardNumber(storeQuery)) {
+      setStoreSuggestions([]);
+      setIsSuggestionsOpen(false);
+      setHasSearchedStores(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/stores/search?q=${encodeURIComponent(trimmed)}`,
+        );
+        if (isCancelled || !res.ok) {
+          return;
+        }
+        const json = (await res.json()) as StoreSearchResponse;
+        if (isCancelled) {
+          return;
+        }
+        const stores = json.stores ?? [];
+        setStoreSuggestions(stores);
+        setHasSearchedStores(true);
+
+        if (stores.length === 0) {
+          setIsSuggestionsOpen(false);
+          setSelectedStore(null);
+          return;
+        }
+
+        const lowerQuery = trimmed.toLowerCase();
+        const exactMatch =
+          stores.find(
+            (s) =>
+              s.name.toLowerCase() === lowerQuery ||
+              s.aliases.some((a) => a.toLowerCase() === lowerQuery),
+          ) ?? (stores.length === 1 ? stores[0]! : null);
+
+        if (exactMatch) {
+          setSelectedStore(exactMatch);
+          setSelectedCategory(exactMatch.category);
+        }
+        setIsSuggestionsOpen(true);
+      } catch {
+        // Ignore transient search errors; manual category selection remains available
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [storeQuery]);
+
   useEffect(() => {
     if (!selectedCategory) {
       return;
@@ -124,12 +197,30 @@ export function HomePage() {
         e.preventDefault();
         searchInputRef.current?.focus();
       } else if (e.key === "Escape") {
+        setIsSuggestionsOpen(false);
         setSelectedCategory(null);
+        setSelectedStore(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleSelectStore = (store: StoreSearchResult) => {
+    if (storeQuery !== store.name) {
+      suppressNextSearchRef.current = true;
+    }
+    setSelectedStore(store);
+    setSelectedCategory(store.category);
+    setStoreQuery(store.name);
+    setIsSuggestionsOpen(false);
+  };
+
+  const handleSelectCategory = (category: CategoryName) => {
+    setSelectedStore(null);
+    setSelectedCategory(category);
+    setIsSuggestionsOpen(false);
+  };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -164,12 +255,18 @@ export function HomePage() {
 
   const activeCategoryLabel =
     CATEGORY_OPTIONS.find((c) => c.id === selectedCategory)?.label ?? "";
+  const activeTargetLabel = selectedStore?.name ?? activeCategoryLabel;
   const activeAmountCents =
     resolveValidAmountCents(amountInput) ?? DEFAULT_PURCHASE_AMOUNT_CENTS;
   const formattedPurchaseAmount = formatCents(activeAmountCents);
   const bestCard = data?.rankedCards[0] ?? null;
 
   const hasCardNumberInSearch = isCardNumber(storeQuery);
+  const hasNoStoreMatch =
+    !hasCardNumberInSearch &&
+    storeQuery.trim().length >= 2 &&
+    hasSearchedStores &&
+    storeSuggestions.length === 0;
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-b from-background to-background-deep text-ink font-sans overflow-x-hidden flex flex-col pb-28 md:pb-0">
@@ -273,7 +370,17 @@ export function HomePage() {
                 id="store-search"
                 type="search"
                 value={storeQuery}
-                onChange={(e) => setStoreQuery(e.target.value)}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  setStoreQuery(nextVal);
+                  if (
+                    selectedStore &&
+                    nextVal.trim().toLowerCase() !==
+                      selectedStore.name.toLowerCase()
+                  ) {
+                    setSelectedStore(null);
+                  }
+                }}
                 placeholder="Safeway"
                 className="w-full h-[44px] pl-10 pr-28 rounded-full bg-glass/65 backdrop-blur-[22px] border border-glass/85 shadow-xs text-[15px] text-ink placeholder:text-ink-muted/70 focus:outline-2 focus:outline-primary"
               />
@@ -283,6 +390,38 @@ export function HomePage() {
               >
                 Press / to search
               </span>
+
+              {isSuggestionsOpen && storeSuggestions.length > 0 && (
+                <ul
+                  role="listbox"
+                  aria-label="Store suggestions"
+                  className="absolute left-0 right-0 top-[50px] z-30 rounded-[22px] bg-glass/95 backdrop-blur-[22px] border border-glass/85 shadow-lg divide-y divide-ink-muted/15 overflow-hidden text-left"
+                >
+                  {storeSuggestions.map((store) => {
+                    const catLabel =
+                      CATEGORY_OPTIONS.find((c) => c.id === store.category)
+                        ?.label ?? store.category;
+                    return (
+                      <li
+                        key={store.id}
+                        role="option"
+                        aria-selected={selectedStore?.id === store.id}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectStore(store)}
+                          className="w-full px-4 py-2.5 flex items-center justify-between text-[15px] text-ink hover:bg-primary-tint/50 transition-colors cursor-pointer"
+                        >
+                          <span className="font-semibold">{store.name}</span>
+                          <span className="text-[13px] font-medium text-primary">
+                            {catLabel}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             {/* Purchase amount pill */}
@@ -324,7 +463,7 @@ export function HomePage() {
             </p>
           )}
 
-          {!hasCardNumberInSearch && storeQuery.trim().length >= 2 && (
+          {hasNoStoreMatch && (
             <p
               role="status"
               aria-live="polite"
@@ -358,7 +497,7 @@ export function HomePage() {
                   key={cat.id}
                   type="button"
                   aria-pressed={isSelected}
-                  onClick={() => setSelectedCategory(cat.id)}
+                  onClick={() => handleSelectCategory(cat.id)}
                   className={`group flex flex-col md:flex-row items-center justify-center gap-1.5 md:gap-2.5 md:px-4 md:py-2 md:rounded-full transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                     isSelected
                       ? "md:bg-glass/90 md:ring-2 md:ring-primary md:shadow-xs"
@@ -471,7 +610,7 @@ export function HomePage() {
                   />
                   <div className="flex items-baseline justify-between mb-3 px-1">
                     <h2 className="text-[17px] font-semibold text-ink">
-                      Your cards at {activeCategoryLabel}
+                      Your cards at {activeTargetLabel}
                     </h2>
                     <span className="text-[13px] text-ink-muted tabular-nums">
                       on {formattedPurchaseAmount}
@@ -495,7 +634,7 @@ export function HomePage() {
                   {bestCard && (
                     <div className="md:col-span-5 space-y-3">
                       <p className="text-[13px] font-semibold text-primary">
-                        Best at {activeCategoryLabel}
+                        Best at {activeTargetLabel}
                       </p>
                       <CardArt
                         name={bestCard.name}
@@ -522,7 +661,7 @@ export function HomePage() {
                   <div className="md:col-span-7">
                     <div className="flex items-baseline justify-between mb-3 pb-2 border-b border-ink-muted/15">
                       <h2 className="text-[20px] font-bold text-ink">
-                        All your cards at {activeCategoryLabel}
+                        All your cards at {activeTargetLabel}
                       </h2>
                       <span className="text-[13px] text-ink-muted tabular-nums">
                         Based on a {formattedPurchaseAmount} purchase
