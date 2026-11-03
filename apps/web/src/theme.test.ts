@@ -91,6 +91,7 @@ describe("Tailwind theme from DESIGN.md (Issue #7)", () => {
           fullPath = path.resolve(base, id);
         }
         return {
+          path: fullPath,
           base: path.dirname(fullPath),
           content: fs.readFileSync(fullPath, "utf8"),
         };
