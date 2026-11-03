@@ -11,6 +11,7 @@ import {
   meHandler,
 } from "./controllers/auth.controller.js";
 import { getRecommendationsHandler } from "./controllers/recommendation.controller.js";
+import { searchStoresHandler } from "./controllers/store.controller.js";
 import {
   requireAuth,
   AuthenticatedRequest,
@@ -18,6 +19,7 @@ import {
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
+import { StoreRepository } from "./repositories/store.repository.js";
 import { prisma as defaultPrisma } from "./db.js";
 
 export interface AppOptions {
@@ -35,6 +37,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.set("userRepo", new UserRepository(activePrisma));
   app.set("recommendationRepo", new RecommendationRepository(activePrisma));
+  app.set("storeRepo", new StoreRepository(activePrisma));
 
   app.use(helmet());
   app.use(
@@ -99,6 +102,10 @@ export function createApp(options: AppOptions = {}) {
 
   // Best card by category recommendations (Issue #12)
   app.get("/api/v1/recommendations", requireAuth, getRecommendationsHandler);
+
+  // Store search (Issue #13)
+  app.get("/api/v1/stores/search", requireAuth, searchStoresHandler);
+  app.get("/api/v1/stores", requireAuth, searchStoresHandler);
 
   // Protected wallet route example demonstrating auth guard
   app.get("/api/v1/wallet", requireAuth, (req: Request, res: Response) => {
