@@ -77,4 +77,107 @@ describe("Frontend API Helper with CSRF (apiFetch)", () => {
       }),
     );
   });
+
+  it("AC: on 403 with EBADCSRFTOKEN, fetches fresh CSRF token and retries once", async () => {
+    setCachedCsrfToken("stale-token");
+    let loginAttempts = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/v1/csrf-token") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ csrfToken: "fresh-csrf-token" }),
+        });
+      }
+      if (url === "/api/v1/auth/login") {
+        loginAttempts++;
+        if (loginAttempts === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 403,
+            clone: () => ({
+              json: () =>
+                Promise.resolve({
+                  error: {
+                    code: "EBADCSRFTOKEN",
+                    message: "Invalid or missing CSRF token.",
+                  },
+                }),
+            }),
+            json: () =>
+              Promise.resolve({
+                error: {
+                  code: "EBADCSRFTOKEN",
+                  message: "Invalid or missing CSRF token.",
+                },
+              }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ user: { id: "1" } }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await apiFetch("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: "test@example.com" }),
+    });
+
+    expect(res.ok).toBe(true);
+    expect(loginAttempts).toBe(2);
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/csrf-token");
+  });
+
+  it("AC: on 403 with EBADCSRFTOKEN, retries only once and returns the failed response if retry also fails", async () => {
+    setCachedCsrfToken("stale-token");
+    let loginAttempts = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/v1/csrf-token") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ csrfToken: "fresh-token-2" }),
+        });
+      }
+      if (url === "/api/v1/auth/login") {
+        loginAttempts++;
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          clone: () => ({
+            json: () =>
+              Promise.resolve({
+                error: {
+                  code: "EBADCSRFTOKEN",
+                  message: "Invalid or missing CSRF token.",
+                },
+              }),
+          }),
+          json: () =>
+            Promise.resolve({
+              error: {
+                code: "EBADCSRFTOKEN",
+                message: "Invalid or missing CSRF token.",
+              },
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await apiFetch("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: "test@example.com" }),
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(403);
+    expect(loginAttempts).toBe(2);
+  });
 });
