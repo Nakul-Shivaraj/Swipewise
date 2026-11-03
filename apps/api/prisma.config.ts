@@ -13,7 +13,11 @@ try {
 export default defineConfig({
   schema: "./prisma/schema.prisma",
   datasource: {
-    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    url:
+      process.env.DIRECT_URL ||
+      process.env.DATABASE_URL ||
+      process.env.DIRECT_URL_TEST ||
+      process.env.DATABASE_URL_TEST,
   },
   migrations: {
     path: "./prisma/migrations",

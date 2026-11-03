@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signupRequestSchema } from './auth.js';
+import { signupRequestSchema, loginRequestSchema } from './auth.js';
 import { calculatePasswordStrength } from '../utils/password-strength.js';
 import { isCardNumber } from '../utils/luhn.js';
 
@@ -107,5 +107,30 @@ describe('Sign up validation schemas (US-01)', () => {
     expect(calculatePasswordStrength('abc')).toEqual({ score: 1, label: 'Weak' });
     expect(calculatePasswordStrength('abc12345')).toEqual({ score: 2, label: 'Okay' });
     expect(calculatePasswordStrength('Abc12345!')).toEqual({ score: 4, label: 'Strong password' });
+  });
+});
+
+
+describe('Log in validation schema (US-01 / Issue #10)', () => {
+  it('AC2: accepts valid login inputs', () => {
+    const result = loginRequestSchema.safeParse({
+      email: 'user@example.com',
+      password: 'Password123',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('AC2: validates email and non-empty password', () => {
+    const badEmail = loginRequestSchema.safeParse({
+      email: 'not-an-email',
+      password: 'Password123',
+    });
+    expect(badEmail.success).toBe(false);
+
+    const emptyPass = loginRequestSchema.safeParse({
+      email: 'user@example.com',
+      password: '',
+    });
+    expect(emptyPass.success).toBe(false);
   });
 });
