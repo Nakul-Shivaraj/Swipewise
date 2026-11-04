@@ -140,9 +140,8 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.use("/api/v1", generalLimiter);
-  app.use("/api/v1/auth", authLimiter);
-  app.post("/api/v1/auth/signup", signupHandler);
-  app.post("/api/v1/auth/login", loginHandler);
+  app.post("/api/v1/auth/signup", authLimiter, signupHandler);
+  app.post("/api/v1/auth/login", authLimiter, loginHandler);
   app.post("/api/v1/auth/logout", logoutHandler);
   app.get("/api/v1/auth/me", requireAuth, meHandler);
 
