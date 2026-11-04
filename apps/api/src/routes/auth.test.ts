@@ -155,7 +155,6 @@ describe("Auth rate limit scope (Issue #42)", () => {
       name: "Rate Scope User",
       email: "ratescope@example.com",
       passwordHash: hash,
-      role: "USER",
       timeZone: "America/Los_Angeles",
       createdAt: new Date(),
       updatedAt: new Date(),
