@@ -1,21 +1,28 @@
-import tseslint from 'typescript-eslint';
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
         {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
         },
       ],
     },
   },
   {
-    ignores: ['**/dist/**', '**/node_modules/**', 'docs/**', 'experiment/**'],
-  }
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "docs/**",
+      "experiment/**",
+      "playwright-report/**",
+      "test-results/**",
+    ],
+  },
 );

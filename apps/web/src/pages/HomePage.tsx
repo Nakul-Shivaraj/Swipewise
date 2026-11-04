@@ -341,9 +341,18 @@ export function HomePage() {
         {/* Hero / Search + Category Selector */}
         <section className="max-w-2xl mx-auto text-left md:text-center">
           {/* Mobile large title */}
-          <h1 className="md:hidden text-[30px] font-bold tracking-tight text-ink leading-[1.15] mb-4">
-            Pay smarter
-          </h1>
+          <div className="md:hidden flex items-center justify-between mb-4">
+            <h1 className="text-[30px] font-bold tracking-tight text-ink leading-[1.15]">
+              Pay smarter
+            </h1>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-3.5 h-9 rounded-full bg-glass/65 backdrop-blur-[22px] border border-glass/80 text-[13px] font-semibold text-ink hover:bg-glass/90 transition-colors cursor-pointer"
+            >
+              Log out
+            </button>
+          </div>
 
           {/* Website hero title */}
           <div className="hidden md:block mb-6">

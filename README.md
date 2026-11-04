@@ -49,12 +49,21 @@ People with multiple credit cards often use the wrong card, forget their perks, 
    (Alternatively, run `npm run dev:web` or `npm run dev:api` to start them individually.)
 
 5. **Run tests, linting, and build:**
+
    ```bash
    npm test
    npm run lint
    npm run typecheck
    npm run build
    ```
+
+6. **Run end-to-end (Playwright) tests:**
+   Requires a local PostgreSQL instance with migrations and seed applied (`DATABASE_URL` must point to `localhost` or `127.0.0.1` — never Supabase):
+   ```bash
+   npx playwright install chromium
+   npm run e2e
+   ```
+   Playwright starts the API and Vite web server automatically via `webServer` and runs the Sprint 1 suite across mobile (`390px`) and desktop (`1440px`) Chromium viewports.
 
 ## Deploy
 

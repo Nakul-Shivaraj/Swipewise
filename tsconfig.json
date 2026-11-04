@@ -17,5 +17,5 @@
     { "path": "./apps/api" },
     { "path": "./apps/web" }
   ],
-  "include": ["api/**/*.ts"]
+  "include": ["api/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"]
 }
