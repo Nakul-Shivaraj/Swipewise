@@ -348,19 +348,28 @@ export function WalletPage() {
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 w-full max-w-[1120px] mx-auto px-4 md:px-8 pt-6 md:pt-10 pb-28 md:pb-12">
-        {/* Mobile Header: Large title + round glass '+' button */}
+        {/* Mobile Header: Large title + round glass '+' and Log out buttons */}
         <div className="md:hidden flex items-center justify-between mb-6">
           <h1 className="text-[30px] font-bold tracking-tight text-ink">
             Wallet
           </h1>
-          <button
-            type="button"
-            onClick={openAddModal}
-            aria-label="Add card"
-            className="w-10 h-10 rounded-full bg-glass/75 backdrop-blur-[22px] border border-glass/90 shadow-sm flex items-center justify-center text-primary hover:bg-glass transition-colors cursor-pointer"
-          >
-            <Plus className="w-5 h-5 stroke-[2.5]" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-3.5 h-10 rounded-full bg-glass/75 backdrop-blur-[22px] border border-glass/90 shadow-sm text-[13px] font-semibold text-ink hover:bg-glass transition-colors cursor-pointer"
+            >
+              Log out
+            </button>
+            <button
+              type="button"
+              onClick={openAddModal}
+              aria-label="Add card"
+              className="w-10 h-10 rounded-full bg-glass/75 backdrop-blur-[22px] border border-glass/90 shadow-sm flex items-center justify-center text-primary hover:bg-glass transition-colors cursor-pointer"
+            >
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+            </button>
+          </div>
         </div>
 
         {/* Website Header: "Your wallet" + "Add card" button */}

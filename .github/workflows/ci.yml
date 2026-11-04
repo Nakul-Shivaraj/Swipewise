@@ -68,6 +68,65 @@ jobs:
         continue-on-error: true
         run: npm audit
 
+  e2e:
+    name: E2E
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: swipewise_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/swipewise_e2e?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/swipewise_e2e?schema=public
+      JWT_SECRET: dummy-jwt-secret-key-for-ci-testing-at-least-32-chars
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy Prisma migrations to E2E database
+        run: npm --workspace=@swipewise/api run db:migrate:deploy
+
+      - name: Seed demo cards and stores
+        run: npm run db:seed
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: npm run e2e
+
+      - name: Upload Playwright report, screenshots, and traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
