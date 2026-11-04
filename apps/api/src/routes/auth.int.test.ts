@@ -304,4 +304,74 @@ describe("Auth Integration Tests (US-01 / Issue #10)", () => {
       "Too many requests. Please try again later.",
     );
   });
+
+  it("Issue #42: 5/min authLimiter applies only to POST /signup and POST /login; 6 quick /me calls succeed and 6th login attempt gets 429", async () => {
+    const defaultRateApp = createApp({ prisma, schema: "test" });
+    const hash = await argon2.hash("Password123", { type: argon2.argon2id });
+    await prisma.user.create({
+      data: {
+        name: "Rate Scope User",
+        email: "ratescope@example.com",
+        passwordHash: hash,
+      },
+    });
+
+    const { token: csrfToken, cookie: csrfCookie } =
+      await getCsrfTokenAndCookie(defaultRateApp);
+
+    // 1st login attempt -> succeeds and sets cookie (1/5 authLimiter hits used)
+    const loginRes = await request(defaultRateApp)
+      .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        email: "ratescope@example.com",
+        password: "Password123",
+      });
+    expect(loginRes.status).toBe(200);
+    const authCookie = loginRes.headers["set-cookie"]!;
+
+    // 6 quick GET /api/v1/auth/me calls -> all 6 succeed (200) because /me uses generalLimiter
+    for (let i = 0; i < 6; i++) {
+      const meRes = await request(defaultRateApp)
+        .get("/api/v1/auth/me")
+        .set("Cookie", authCookie);
+      expect(meRes.status).toBe(200);
+    }
+
+    // POST /api/v1/auth/logout also uses generalLimiter -> succeeds (200)
+    const logoutRes = await request(defaultRateApp)
+      .post("/api/v1/auth/logout")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie);
+    expect(logoutRes.status).toBe(200);
+
+    // 4 more login attempts (total 5 login attempts within the minute) -> all allowed by authLimiter
+    for (let i = 0; i < 4; i++) {
+      const attemptRes = await request(defaultRateApp)
+        .post("/api/v1/auth/login")
+        .set("x-csrf-token", csrfToken)
+        .set("Cookie", csrfCookie)
+        .send({
+          email: "ratescope@example.com",
+          password: "WrongPassword999",
+        });
+      expect(attemptRes.status).toBe(401);
+    }
+
+    // 6th login attempt within a minute -> blocked with 429
+    const sixthLoginRes = await request(defaultRateApp)
+      .post("/api/v1/auth/login")
+      .set("x-csrf-token", csrfToken)
+      .set("Cookie", csrfCookie)
+      .send({
+        email: "ratescope@example.com",
+        password: "WrongPassword999",
+      });
+    expect(sixthLoginRes.status).toBe(429);
+    expect(sixthLoginRes.body.error.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(sixthLoginRes.body.error.message).toBe(
+      "Too many tries. Wait a minute and try again.",
+    );
+  });
 });
