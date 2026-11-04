@@ -111,6 +111,9 @@ jobs:
       - name: Seed demo cards and stores
         run: npm run db:seed
 
+      - name: Build workspaces
+        run: npm run build
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
