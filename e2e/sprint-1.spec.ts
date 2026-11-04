@@ -1,9 +1,15 @@
 import { test, expect } from "@playwright/test";
-import type { BrowserContextOptions } from "@playwright/test";
+import type { BrowserContextOptions, Page } from "@playwright/test";
 import {
   assertLocalDatabaseUrl,
   clearRateLimits,
 } from "./helpers/reset-rate-limits.js";
+
+function getWalletCardItem(page: Page, cardName: string, isMobile: boolean) {
+  return isMobile
+    ? page.getByRole("button", { name: new RegExp(cardName) })
+    : page.getByRole("row", { name: new RegExp(cardName) });
+}
 
 test.describe("Sprint 1 E2E flow (Issue #14)", () => {
   test.describe.configure({ mode: "serial" });
@@ -45,8 +51,9 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
 
   test("AC2: add Mint Everyday, Basic Flat, and Harbor Travel Plus to wallet and see all 3", async ({
     browser,
-  }) => {
+  }, testInfo) => {
     expect(savedStorageState).toBeDefined();
+    const isMobile = testInfo.project.name === "mobile";
     const context = await browser.newContext({
       storageState: savedStorageState,
     });
@@ -59,24 +66,28 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
       ).toBeVisible();
 
       // Add Mint Everyday via empty-state "Add a card" button
-      await page.getByRole("button", { name: "Add a card" }).first().click();
+      await page.getByRole("button", { name: "Add a card" }).click();
       const addDialog = page.getByRole("dialog", { name: "Add a card" });
       await expect(addDialog).toBeVisible();
       await addDialog.getByRole("button", { name: /Mint Everyday/ }).click();
       await addDialog.getByRole("button", { name: "Add to wallet" }).click();
       await expect(addDialog).toBeHidden();
-      await expect(page.getByText("Mint Everyday").first()).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Mint Everyday", isMobile),
+      ).toBeVisible();
 
       // Add Basic Flat via header "Add card" button
-      await page.getByRole("button", { name: "Add card" }).first().click();
+      await page.getByRole("button", { name: "Add card" }).click();
       await expect(addDialog).toBeVisible();
       await addDialog.getByRole("button", { name: /Basic Flat/ }).click();
       await addDialog.getByRole("button", { name: "Add to wallet" }).click();
       await expect(addDialog).toBeHidden();
-      await expect(page.getByText("Basic Flat").first()).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Basic Flat", isMobile),
+      ).toBeVisible();
 
       // Add Harbor Travel Plus via header "Add card" button
-      await page.getByRole("button", { name: "Add card" }).first().click();
+      await page.getByRole("button", { name: "Add card" }).click();
       await expect(addDialog).toBeVisible();
       await addDialog
         .getByRole("button", { name: /Harbor Travel Plus/ })
@@ -85,9 +96,15 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
       await expect(addDialog).toBeHidden();
 
       // Verify all 3 show in the wallet
-      await expect(page.getByText("Mint Everyday").first()).toBeVisible();
-      await expect(page.getByText("Basic Flat").first()).toBeVisible();
-      await expect(page.getByText("Harbor Travel Plus").first()).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Mint Everyday", isMobile),
+      ).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Basic Flat", isMobile),
+      ).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Harbor Travel Plus", isMobile),
+      ).toBeVisible();
     } finally {
       await context.close();
     }
@@ -104,7 +121,7 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
 
     try {
       await page.goto("/wallet");
-      await page.getByRole("button", { name: "Add card" }).first().click();
+      await page.getByRole("button", { name: "Add card" }).click();
 
       const addDialog = page.getByRole("dialog", { name: "Add a card" });
       await expect(addDialog).toBeVisible();
@@ -174,26 +191,50 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
         await expect(
           page.getByRole("heading", { name: "Your cards at Safeway" }),
         ).toBeVisible();
-        await expect(page.getByText("on $100.00")).toBeVisible();
+        await expect(
+          page.getByText("on $100.00").filter({ visible: true }),
+        ).toBeVisible();
       } else {
         // Desktop: results shown on the page ("All your cards at Safeway", "Based on a $100.00 purchase")
         await expect(
           page.getByRole("heading", { name: "All your cards at Safeway" }),
         ).toBeVisible();
         await expect(
-          page.getByText("Based on a $100.00 purchase"),
+          page
+            .getByText("Based on a $100.00 purchase")
+            .filter({ visible: true }),
         ).toBeVisible();
       }
 
       await expect(
-        page.getByText("Best pick, 4% groceries").first(),
+        page.getByText("Best pick, 4% groceries").filter({ visible: true }),
       ).toBeVisible();
-      await expect(page.getByText("Mint Everyday").first()).toBeVisible();
-      await expect(page.getByText("$4.00").first()).toBeVisible();
-      await expect(page.getByText("Basic Flat").first()).toBeVisible();
-      await expect(page.getByText("$1.50").first()).toBeVisible();
-      await expect(page.getByText("Harbor Travel Plus").first()).toBeVisible();
-      await expect(page.getByText("$1.25").first()).toBeVisible();
+      await expect(
+        page
+          .getByText("Mint Everyday", { exact: true })
+          .filter({ visible: true })
+          .first(),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByText("$4.00", { exact: true })
+          .filter({ visible: true })
+          .first(),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Basic Flat", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("$1.50", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByText("Harbor Travel Plus", { exact: true })
+          .filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("$1.25", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
     } finally {
       await context.close();
     }
@@ -222,14 +263,34 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
       await categoriesGroup.getByRole("button", { name: "Groceries" }).click();
 
       await expect(
-        page.getByText("Best pick, 4% groceries").first(),
+        page.getByText("Best pick, 4% groceries").filter({ visible: true }),
       ).toBeVisible();
-      await expect(page.getByText("Mint Everyday").first()).toBeVisible();
-      await expect(page.getByText("$4.00").first()).toBeVisible();
-      await expect(page.getByText("Basic Flat").first()).toBeVisible();
-      await expect(page.getByText("$1.50").first()).toBeVisible();
-      await expect(page.getByText("Harbor Travel Plus").first()).toBeVisible();
-      await expect(page.getByText("$1.25").first()).toBeVisible();
+      await expect(
+        page
+          .getByText("Mint Everyday", { exact: true })
+          .filter({ visible: true })
+          .first(),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByText("$4.00", { exact: true })
+          .filter({ visible: true })
+          .first(),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Basic Flat", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("$1.50", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByText("Harbor Travel Plus", { exact: true })
+          .filter({ visible: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("$1.25", { exact: true }).filter({ visible: true }),
+      ).toBeVisible();
     } finally {
       await context.close();
     }
@@ -237,8 +298,9 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
 
   test("AC6: log out goes to /login and opening /wallet redirects to /login", async ({
     browser,
-  }) => {
+  }, testInfo) => {
     expect(savedStorageState).toBeDefined();
+    const isMobile = testInfo.project.name === "mobile";
     const context = await browser.newContext({
       storageState: savedStorageState,
     });
@@ -246,9 +308,11 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
 
     try {
       await page.goto("/wallet");
-      await expect(page.getByText("Mint Everyday").first()).toBeVisible();
+      await expect(
+        getWalletCardItem(page, "Mint Everyday", isMobile),
+      ).toBeVisible();
 
-      await page.getByRole("button", { name: "Log out" }).first().click();
+      await page.getByRole("button", { name: "Log out" }).click();
       await expect(page).toHaveURL(/\/login$/);
 
       await page.goto("/wallet");
@@ -274,7 +338,8 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
 
   test("AC8: log back in and verify the 3 cards are still saved in the wallet", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const isMobile = testInfo.project.name === "mobile";
     await page.goto("/login");
 
     await page.getByLabel("Email").fill(userEmail);
@@ -282,8 +347,12 @@ test.describe("Sprint 1 E2E flow (Issue #14)", () => {
     await page.getByRole("button", { name: "Log in" }).click();
 
     await expect(page).toHaveURL(/\/wallet$/);
-    await expect(page.getByText("Mint Everyday").first()).toBeVisible();
-    await expect(page.getByText("Basic Flat").first()).toBeVisible();
-    await expect(page.getByText("Harbor Travel Plus").first()).toBeVisible();
+    await expect(
+      getWalletCardItem(page, "Mint Everyday", isMobile),
+    ).toBeVisible();
+    await expect(getWalletCardItem(page, "Basic Flat", isMobile)).toBeVisible();
+    await expect(
+      getWalletCardItem(page, "Harbor Travel Plus", isMobile),
+    ).toBeVisible();
   });
 });
