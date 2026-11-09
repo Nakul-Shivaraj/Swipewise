@@ -13,15 +13,24 @@ enum Category {
   TRAVEL
 }
 
+enum ReminderType {
+  PAYMENT_DUE
+  PERK_ENDING
+  ROTATING_CATEGORY
+  POINTS_EXPIRY
+}
+
 model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  passwordHash String       @map("password_hash")
-  name         String
-  timeZone     String       @default("America/Los_Angeles") @map("time_zone")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
-  walletCards  WalletCard[]
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  passwordHash            String                   @map("password_hash")
+  name                    String
+  timeZone                String                   @default("America/Los_Angeles") @map("time_zone")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  walletCards             WalletCard[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -114,4 +123,34 @@ model RateLimit {
   resetTime DateTime @map("reset_time")
 
   @@map("rate_limits")
+}
+
+model Notification {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        ReminderType
+  title       String
+  body        String
+  dueDate     DateTime     @db.Date @map("due_date")
+  dedupeKey   String       @unique @map("dedupe_key")
+  dismissedAt DateTime?    @map("dismissed_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([userId, dismissedAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      ReminderType
+  enabled   Boolean      @default(true)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
 }

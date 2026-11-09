@@ -4,6 +4,7 @@ import { SignUpPage } from "./pages/SignUpPage.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { HomePage } from "./pages/HomePage.js";
 import { WalletPage } from "./pages/WalletPage.js";
+import { AlertsPage } from "./pages/AlertsPage.js";
 import { AuthGuard } from "./components/AuthGuard.js";
 
 export function App() {
@@ -25,6 +26,14 @@ export function App() {
           element={
             <AuthGuard>
               <WalletPage />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <AuthGuard>
+              <AlertsPage />
             </AuthGuard>
           }
         />

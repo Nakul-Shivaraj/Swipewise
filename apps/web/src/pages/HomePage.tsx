@@ -312,20 +312,23 @@ export function HomePage() {
             <span className="py-5 text-[15px] font-medium text-ink-muted/70 cursor-default">
               Tracker
             </span>
-            <span className="py-5 text-[15px] font-medium text-ink-muted/70 cursor-default">
+            <Link
+              to="/alerts"
+              className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"
+            >
               Alerts
-            </span>
+            </Link>
           </nav>
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            type="button"
+          <Link
+            to="/alerts"
             aria-label="Alerts"
             className="w-10 h-10 rounded-full bg-glass/60 border border-glass/80 flex items-center justify-center text-ink-muted hover:text-ink transition-colors"
           >
             <Bell className="w-4 h-4" aria-hidden="true" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={handleLogout}
@@ -717,10 +720,13 @@ export function HomePage() {
           <BarChart3 className="w-5 h-5 mb-0.5" aria-hidden="true" />
           <span>Tracker</span>
         </span>
-        <span className="flex flex-col items-center justify-center px-5 py-1.5 rounded-full text-ink-muted/70 font-medium text-[11px]">
+        <Link
+          to="/alerts"
+          className="flex flex-col items-center justify-center px-5 py-1.5 rounded-full text-ink-muted hover:text-ink font-medium text-[11px]"
+        >
           <Bell className="w-5 h-5 mb-0.5" aria-hidden="true" />
           <span>Alerts</span>
-        </span>
+        </Link>
       </nav>
 
       {/* Website Footer (768px and up) */}
