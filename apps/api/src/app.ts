@@ -27,6 +27,7 @@ import { RecommendationRepository } from "./repositories/recommendation.reposito
 import { WalletRepository } from "./repositories/wallet.repository.js";
 import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { StoreRepository } from "./repositories/store.repository.js";
+import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
 export interface AppOptions {
@@ -35,6 +36,9 @@ export interface AppOptions {
   prisma?: PrismaClient;
   schema?: string;
   csrfSecret?: string;
+  cronSecret?: string;
+  reminderRegistry?: ReminderGeneratorRegistry;
+  nowProvider?: () => Date;
 }
 
 export function createApp(options: AppOptions = {}) {
