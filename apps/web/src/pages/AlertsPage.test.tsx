@@ -188,4 +188,87 @@ describe("AlertsPage (US-05..09 / Issue #19)", () => {
       ).toHaveAttribute("aria-checked", "false");
     });
   });
+
+  it("AC2: Mark all read dismisses all notifications and shows empty state", async () => {
+    let activeList = [...MOCK_NOTIFICATIONS];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          url === "/api/v1/notifications" &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ notifications: activeList }),
+          });
+        }
+        if (url === "/api/v1/notification-preferences") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ preferences: MOCK_PREFERENCES }),
+          });
+        }
+        if (
+          url === "/api/v1/notifications/dismiss-all" &&
+          init?.method === "POST"
+        ) {
+          const count = activeList.length;
+          activeList = [];
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ dismissedCount: count }),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AlertsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment due in 5 days")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Mark all read" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("You're all caught up. No new reminders."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("displays error state with Retry button when API fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({}),
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <AlertsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Something went wrong. Try again."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    });
+  });
 });

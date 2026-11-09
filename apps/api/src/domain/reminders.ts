@@ -1,7 +1,9 @@
 import {
   NotificationPreferenceItem,
+  REMINDER_TYPES,
   ReminderTypeName,
 } from "@swipewise/shared";
+import { resolveLocalCalendarDate } from "./dates/user-date.js";
 
 export interface ReminderUserContext {
   id: string;
@@ -28,16 +30,22 @@ export type ReminderGenerator = (
 ) => GeneratedReminderCandidate[] | Promise<GeneratedReminderCandidate[]>;
 
 export class ReminderGeneratorRegistry {
-  register(_type: ReminderTypeName, _generator: ReminderGenerator): void {}
+  private readonly generators = new Map<ReminderTypeName, ReminderGenerator>();
 
-  unregister(_type: ReminderTypeName): void {}
+  register(type: ReminderTypeName, generator: ReminderGenerator): void {
+    this.generators.set(type, generator);
+  }
 
-  get(_type: ReminderTypeName): ReminderGenerator | undefined {
-    return undefined;
+  unregister(type: ReminderTypeName): void {
+    this.generators.delete(type);
+  }
+
+  get(type: ReminderTypeName): ReminderGenerator | undefined {
+    return this.generators.get(type);
   }
 
   getAll(): ReadonlyMap<ReminderTypeName, ReminderGenerator> {
-    return new Map();
+    return this.generators;
   }
 }
 
@@ -53,22 +61,42 @@ export interface TestReminderGeneratorOptions {
 }
 
 export function createTestReminderGenerator(
-  _options: TestReminderGeneratorOptions = {},
+  options: TestReminderGeneratorOptions = {},
 ): ReminderGenerator {
-  return () => [];
+  const type = options.type ?? "PAYMENT_DUE";
+  const title = options.title ?? "Payment due in 5 days";
+  const body = options.body ?? "Mint Everyday payment is due soon.";
+
+  return ({ user, localDate }) => {
+    const dueDate = options.dueDate ?? localDate;
+    return [
+      {
+        userId: user.id,
+        type,
+        title,
+        body,
+        dueDate,
+        dedupeKey: `${type}:${user.id}:${dueDate}`,
+      },
+    ];
+  };
 }
 
 export function isReminderTypeEnabled(
-  _savedPreferences: ReadonlyArray<NotificationPreferenceItem>,
-  _type: ReminderTypeName,
+  savedPreferences: ReadonlyArray<NotificationPreferenceItem>,
+  type: ReminderTypeName,
 ): boolean {
-  return false;
+  const found = savedPreferences.find((pref) => pref.type === type);
+  return found ? found.enabled : true;
 }
 
 export function resolveUserPreferences(
-  _savedPreferences: ReadonlyArray<NotificationPreferenceItem>,
+  savedPreferences: ReadonlyArray<NotificationPreferenceItem>,
 ): NotificationPreferenceItem[] {
-  return [];
+  return REMINDER_TYPES.map((type) => ({
+    type,
+    enabled: isReminderTypeEnabled(savedPreferences, type),
+  }));
 }
 
 export interface RunGeneratorsForUserInput {
@@ -78,15 +106,49 @@ export interface RunGeneratorsForUserInput {
   now: Date;
 }
 
-export async function generateRemindersForUser(
-  _input: RunGeneratorsForUserInput,
-): Promise<GeneratedReminderCandidate[]> {
-  return [];
+export async function generateRemindersForUser({
+  user,
+  savedPreferences,
+  registry,
+  now,
+}: RunGeneratorsForUserInput): Promise<GeneratedReminderCandidate[]> {
+  const localDate = resolveLocalCalendarDate({
+    now,
+    timeZone: user.timeZone,
+  });
+
+  const allCandidates: GeneratedReminderCandidate[] = [];
+
+  for (const [type, generator] of registry.getAll().entries()) {
+    if (!isReminderTypeEnabled(savedPreferences, type)) {
+      continue;
+    }
+
+    const generated = await generator({
+      user,
+      now,
+      localDate,
+    });
+    allCandidates.push(...generated);
+  }
+
+  return filterNewReminderCandidates(allCandidates, new Set());
 }
 
 export function filterNewReminderCandidates(
-  _candidates: ReadonlyArray<GeneratedReminderCandidate>,
-  _existingDedupeKeys: ReadonlySet<string>,
+  candidates: ReadonlyArray<GeneratedReminderCandidate>,
+  existingDedupeKeys: ReadonlySet<string>,
 ): GeneratedReminderCandidate[] {
-  return [];
+  const seen = new Set<string>(existingDedupeKeys);
+  const result: GeneratedReminderCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (seen.has(candidate.dedupeKey)) {
+      continue;
+    }
+    seen.add(candidate.dedupeKey);
+    result.push(candidate);
+  }
+
+  return result;
 }

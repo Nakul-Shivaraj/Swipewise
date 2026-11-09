@@ -20,6 +20,14 @@ import {
   updateWalletCardHandler,
   deleteWalletCardHandler,
 } from "./controllers/wallet.controller.js";
+import {
+  runReminderCronHandler,
+  getNotificationsHandler,
+  dismissNotificationHandler,
+  dismissAllNotificationsHandler,
+  getNotificationPreferencesHandler,
+  updateNotificationPreferencesHandler,
+} from "./controllers/notification.controller.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -27,6 +35,7 @@ import { RecommendationRepository } from "./repositories/recommendation.reposito
 import { WalletRepository } from "./repositories/wallet.repository.js";
 import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { StoreRepository } from "./repositories/store.repository.js";
+import { NotificationRepository } from "./repositories/notification.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -52,6 +61,16 @@ export function createApp(options: AppOptions = {}) {
   app.set("walletRepo", new WalletRepository(activePrisma));
   app.set("catalogRepo", new CatalogRepository(activePrisma));
   app.set("storeRepo", new StoreRepository(activePrisma));
+  app.set("notificationRepo", new NotificationRepository(activePrisma));
+  if (options.cronSecret !== undefined) {
+    app.set("cronSecret", options.cronSecret);
+  }
+  if (options.reminderRegistry) {
+    app.set("reminderRegistry", options.reminderRegistry);
+  }
+  if (options.nowProvider) {
+    app.set("nowProvider", options.nowProvider);
+  }
 
   app.use(helmet());
   app.use(
@@ -167,6 +186,47 @@ export function createApp(options: AppOptions = {}) {
 
   // Replaced placeholder /api/v1/wallet route
   app.get("/api/v1/wallet", requireAuth, getWalletCardsHandler);
+
+  // Daily reminder cron job (Issue #19) — skips login & CSRF, requires Bearer CRON_SECRET
+  app.get("/api/v1/cron/reminders", runReminderCronHandler);
+
+  // Notifications & reminder preferences routes (Issue #19)
+  app.get("/api/v1/notifications", requireAuth, getNotificationsHandler);
+  app.post(
+    "/api/v1/notifications/dismiss-all",
+    requireAuth,
+    dismissAllNotificationsHandler,
+  );
+  app.post(
+    "/api/v1/notifications/:id/dismiss",
+    requireAuth,
+    dismissNotificationHandler,
+  );
+  app.patch(
+    "/api/v1/notifications/:id/dismiss",
+    requireAuth,
+    dismissNotificationHandler,
+  );
+  app.delete(
+    "/api/v1/notifications/:id",
+    requireAuth,
+    dismissNotificationHandler,
+  );
+  app.get(
+    "/api/v1/notification-preferences",
+    requireAuth,
+    getNotificationPreferencesHandler,
+  );
+  app.patch(
+    "/api/v1/notification-preferences",
+    requireAuth,
+    updateNotificationPreferencesHandler,
+  );
+  app.put(
+    "/api/v1/notification-preferences",
+    requireAuth,
+    updateNotificationPreferencesHandler,
+  );
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
