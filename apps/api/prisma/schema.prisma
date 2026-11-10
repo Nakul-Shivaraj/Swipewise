@@ -105,17 +105,44 @@ model StoreAlias {
 }
 
 model WalletCard {
-  id         String    @id @default(uuid())
-  userId     String    @map("user_id")
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cardId     String    @map("card_id")
-  card       Card      @relation(fields: [cardId], references: [id], onDelete: Restrict)
-  nickname   String?
-  openedDate DateTime? @db.Date @map("opened_date")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id             String                    @id @default(uuid())
+  userId         String                    @map("user_id")
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId         String                    @map("card_id")
+  card           Card                      @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  nickname       String?
+  openedDate     DateTime?                 @db.Date @map("opened_date")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+  paymentSetting WalletCardPaymentSetting?
+  paidCycles     WalletCardPaidCycle[]
 
   @@map("wallet_cards")
+}
+
+model WalletCardPaymentSetting {
+  id           String     @id @default(uuid())
+  walletCardId String     @unique @map("wallet_card_id")
+  walletCard   WalletCard @relation(fields: [walletCardId], references: [id], onDelete: Cascade)
+  dueDay       Int        @map("due_day")
+  isAutopay    Boolean    @default(false) @map("is_autopay")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@map("wallet_card_payment_settings")
+}
+
+model WalletCardPaidCycle {
+  id             String     @id @default(uuid())
+  walletCardId   String     @map("wallet_card_id")
+  walletCard     WalletCard @relation(fields: [walletCardId], references: [id], onDelete: Cascade)
+  cycleYearMonth String     @map("cycle_year_month")
+  paidAt         DateTime   @default(now()) @map("paid_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  @@unique([walletCardId, cycleYearMonth])
+  @@map("wallet_card_paid_cycles")
 }
 
 

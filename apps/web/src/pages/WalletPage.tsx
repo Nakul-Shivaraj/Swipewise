@@ -23,6 +23,10 @@ import {
   Check,
 } from "lucide-react";
 import { CardArt } from "../components/CardArt.js";
+import {
+  WalletCardPaymentForm,
+  WalletCardPaymentSummary,
+} from "../components/WalletCardPaymentSettings.js";
 import { apiFetch } from "../api.js";
 
 function getBestCategoryLabel(card: CatalogCard): string {
@@ -489,6 +493,9 @@ export function WalletPage() {
                               {wc.card.name}
                             </p>
                           )}
+                          <div className="mt-0.5">
+                            <WalletCardPaymentSummary card={wc} />
+                          </div>
                         </div>
                         <span className="text-ink-muted text-[11px]">
                           {wc.openedDate
@@ -551,6 +558,9 @@ export function WalletPage() {
                             {wc.card.name}
                           </p>
                         )}
+                        <div className="mt-0.5">
+                          <WalletCardPaymentSummary card={wc} />
+                        </div>
                       </div>
                       <span className="text-[12px] text-ink-muted shrink-0">
                         {wc.card.annualFeeCents === 0
@@ -897,6 +907,16 @@ export function WalletPage() {
                 </button>
               </div>
             </form>
+
+            <WalletCardPaymentForm
+              card={editingCard}
+              onUpdated={(updated) => {
+                setWalletCards((prev) =>
+                  prev.map((c) => (c.id === updated.id ? updated : c)),
+                );
+                setEditingCard(null);
+              }}
+            />
           </div>
         </div>
       )}

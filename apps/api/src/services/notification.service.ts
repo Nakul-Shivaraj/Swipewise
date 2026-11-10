@@ -15,10 +15,18 @@ import {
   NotificationRepository,
   notificationRepo as defaultNotificationRepo,
 } from "../repositories/notification.repository.js";
+import { walletRepo as defaultWalletRepo } from "../repositories/wallet.repository.js";
 import { pointsBalanceRepo as defaultPointsBalanceRepo } from "../repositories/points-balance.repository.js";
+import { createPaymentDueReminderGenerator } from "../domain/payment-reminders.js";
 import { createPointsExpiryReminderGenerator } from "../domain/points-expiry.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
+defaultReminderRegistry.register(
+  "PAYMENT_DUE",
+  createPaymentDueReminderGenerator((userId) =>
+    defaultWalletRepo.findPaymentReminderCardsByUserId(userId),
+  ),
+);
 defaultReminderRegistry.register(
   "POINTS_EXPIRY",
   createPointsExpiryReminderGenerator((userId) =>

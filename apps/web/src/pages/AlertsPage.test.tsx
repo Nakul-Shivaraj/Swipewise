@@ -271,4 +271,93 @@ describe("AlertsPage (US-05..09 / Issue #19)", () => {
       expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     });
   });
+
+  it("US-08 AC4 (Issue #20): shows 'Mark paid' button on PAYMENT_DUE reminders and marks the cycle paid", async () => {
+    const paymentNotification = {
+      id: "11111111-1111-4111-8111-000000000099",
+      userId: "11111111-1111-4111-8111-111111111111",
+      type: "PAYMENT_DUE" as const,
+      title: "Payment due in 5 days",
+      body: "Mint Everyday payment is due on 2026-11-15.",
+      dueDate: "2026-11-15",
+      dedupeKey: "PAYMENT_DUE:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:2026-11:5",
+      dismissedAt: null,
+      createdAt: "2026-11-10T09:00:00.000Z",
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          url === "/api/v1/notifications" &&
+          (!init?.method || init.method === "GET")
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                notifications: [paymentNotification, MOCK_NOTIFICATIONS[1]!],
+              }),
+          });
+        }
+        if (url === "/api/v1/notification-preferences") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ preferences: MOCK_PREFERENCES }),
+          });
+        }
+        if (
+          url ===
+            "/api/v1/wallet/cards/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/paid-cycles" &&
+          init?.method === "POST"
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                paidCycle: {
+                  walletCardId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  cycleYearMonth: "2026-11",
+                  paidAt: "2026-11-10T10:00:00.000Z",
+                },
+              }),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AlertsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment due in 5 days")).toBeInTheDocument();
+    });
+
+    const markPaidBtn = screen.getByRole("button", {
+      name: /Mark paid/i,
+    });
+    await user.click(markPaidBtn);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/wallet/cards/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/paid-cycles",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ cycleYearMonth: "2026-11" }),
+        }),
+      );
+      expect(
+        screen.queryByText("Payment due in 5 days"),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
