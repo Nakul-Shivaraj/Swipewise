@@ -132,4 +132,14 @@ describe("Prisma Schema Definition (Issue #9)", () => {
     expect(schema).toContain("@@unique([walletCardId, perkId, periodKey])");
     expect(schema).toContain('@@map("perk_usages")');
   });
+
+  it("Issue #23: schema defines RotatingCategory and WalletCardQuarterActivation", () => {
+    expect(schema).toMatch(/model\s+RotatingCategory\s+{/);
+    expect(schema).toContain("@@unique([cardId, quarter, category])");
+    expect(schema).toContain('@@map("rotating_categories")');
+
+    expect(schema).toMatch(/model\s+WalletCardQuarterActivation\s+{/);
+    expect(schema).toContain("@@unique([walletCardId, quarter])");
+    expect(schema).toContain('@@map("wallet_card_quarter_activations")');
+  });
 });

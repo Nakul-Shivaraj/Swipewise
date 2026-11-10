@@ -21,6 +21,7 @@ import { perkRepo as defaultPerkRepo } from "../repositories/perk.repository.js"
 import { createPaymentDueReminderGenerator } from "../domain/payment-reminders.js";
 import { createPointsExpiryReminderGenerator } from "../domain/points-expiry.js";
 import { createPerkEndingReminderGenerator } from "../domain/perks.js";
+import { createRotatingCategoryReminderGenerator } from "../domain/rotating-categories.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
 defaultReminderRegistry.register(
@@ -39,6 +40,12 @@ defaultReminderRegistry.register(
   "PERK_ENDING",
   createPerkEndingReminderGenerator((userId) =>
     defaultPerkRepo.findPerkReminderCardsByUserId(userId),
+  ),
+);
+defaultReminderRegistry.register(
+  "ROTATING_CATEGORY",
+  createRotatingCategoryReminderGenerator((userId) =>
+    defaultWalletRepo.findRotatingReminderCardsByUserId(userId),
   ),
 );
 

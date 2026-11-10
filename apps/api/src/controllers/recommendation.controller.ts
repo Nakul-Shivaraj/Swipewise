@@ -52,11 +52,15 @@ export async function getRecommendationsHandler(
     }
 
     const { category, amountCents } = parseResult.data;
+    const nowProvider =
+      (req.app.get("nowProvider") as (() => Date) | undefined) ||
+      (() => new Date());
     const service = getService(req);
     const result = await service.getRecommendationsForCategory(
       authReq.user.id,
       category,
       amountCents,
+      nowProvider(),
     );
 
     res.status(200).json(result);

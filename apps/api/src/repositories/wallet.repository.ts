@@ -2,6 +2,11 @@ import { PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "../db.js";
 import { CatalogCardItem } from "./catalog.repository.js";
 import { PaymentReminderCardInput } from "../domain/payment-reminders.js";
+import { RotatingReminderCardInput } from "../domain/rotating-categories.js";
+import {
+  DEFAULT_USER_TIME_ZONE,
+  resolveCurrentAndNextQuarters,
+} from "../domain/dates/user-date.js";
 
 export interface WalletCardWithDetails {
   id: string;
@@ -16,16 +21,44 @@ export interface WalletCardWithDetails {
     isAutopay: boolean;
   } | null;
   paidCycles: string[];
+  activatedQuarters: string[];
+  rotatingQuarters: {
+    currentQuarter: {
+      quarter: string;
+      isActivated: boolean;
+      categories: Array<{
+        category: "GROCERIES" | "DINING" | "GAS" | "TRAVEL";
+        rateX100: number;
+        capCents: number | null;
+      }>;
+    };
+    nextQuarter: {
+      quarter: string;
+      isActivated: boolean;
+      categories: Array<{
+        category: "GROCERIES" | "DINING" | "GAS" | "TRAVEL";
+        rateX100: number;
+        capCents: number | null;
+      }>;
+    };
+  } | null;
   card: CatalogCardItem;
 }
 
 const WALLET_CARD_INCLUDE = {
+  user: {
+    select: {
+      timeZone: true,
+    },
+  },
   paymentSetting: true,
   paidCycles: true,
+  quarterActivations: true,
   card: {
     include: {
       program: true,
       rewardRules: true,
+      rotatingCategories: true,
     },
   },
 } as const;
@@ -37,40 +70,93 @@ export class WalletRepository {
     this.prisma = prisma;
   }
 
-  private mapToDetails(wc: {
-    id: string;
-    userId: string;
-    cardId: string;
-    nickname: string | null;
-    openedDate: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-    paymentSetting?: {
-      dueDay: number;
-      isAutopay: boolean;
-    } | null;
-    paidCycles?: Array<{
-      cycleYearMonth: string;
-    }>;
-    card: {
+  async findUserTimeZone(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { timeZone: true },
+    });
+    return user?.timeZone || DEFAULT_USER_TIME_ZONE;
+  }
+
+  private mapToDetails(
+    wc: {
       id: string;
-      name: string;
-      issuer: string;
-      artColor: string;
-      isDemo: boolean;
-      annualFeeCents: number;
-      baseRateX100: number;
-      program: {
-        name: string;
-        centsPer100Points: number;
-      };
-      rewardRules: Array<{
-        category: string;
-        rateX100: number;
-        capCents: number | null;
+      userId: string;
+      cardId: string;
+      nickname: string | null;
+      openedDate: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      user?: {
+        timeZone: string;
+      } | null;
+      paymentSetting?: {
+        dueDay: number;
+        isAutopay: boolean;
+      } | null;
+      paidCycles?: Array<{
+        cycleYearMonth: string;
       }>;
-    };
-  }): WalletCardWithDetails {
+      quarterActivations?: Array<{
+        quarter: string;
+      }>;
+      card: {
+        id: string;
+        name: string;
+        issuer: string;
+        artColor: string;
+        isDemo: boolean;
+        annualFeeCents: number;
+        baseRateX100: number;
+        program: {
+          name: string;
+          centsPer100Points: number;
+        };
+        rewardRules: Array<{
+          category: string;
+          rateX100: number;
+          capCents: number | null;
+        }>;
+        rotatingCategories?: Array<{
+          quarter: string;
+          category: string;
+          rateX100: number;
+          capCents: number | null;
+        }>;
+      };
+    },
+    now: Date = new Date(),
+  ): WalletCardWithDetails {
+    const activatedQuarters = wc.quarterActivations
+      ? wc.quarterActivations.map((qa) => qa.quarter)
+      : [];
+    const rotatingCats = wc.card.rotatingCategories ?? [];
+    const timeZone = wc.user?.timeZone || DEFAULT_USER_TIME_ZONE;
+    const [currentQuarter, nextQuarter] = resolveCurrentAndNextQuarters({
+      now,
+      timeZone,
+    });
+
+    const currentCategories = rotatingCats
+      .filter((rc) => rc.quarter === currentQuarter)
+      .map((rc) => ({
+        category: rc.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
+        rateX100: rc.rateX100,
+        capCents: rc.capCents,
+      }));
+    const nextCategories = rotatingCats
+      .filter((rc) => rc.quarter === nextQuarter)
+      .map((rc) => ({
+        category: rc.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
+        rateX100: rc.rateX100,
+        capCents: rc.capCents,
+      }));
+
+    const hasRotatingSchedule =
+      rotatingCats.length > 0 ||
+      currentCategories.length > 0 ||
+      nextCategories.length > 0;
+
     return {
       id: wc.id,
       userId: wc.userId,
@@ -90,6 +176,21 @@ export class WalletRepository {
       paidCycles: wc.paidCycles
         ? wc.paidCycles.map((pc) => pc.cycleYearMonth)
         : [],
+      activatedQuarters,
+      rotatingQuarters: hasRotatingSchedule
+        ? {
+            currentQuarter: {
+              quarter: currentQuarter,
+              isActivated: activatedQuarters.includes(currentQuarter),
+              categories: currentCategories,
+            },
+            nextQuarter: {
+              quarter: nextQuarter,
+              isActivated: activatedQuarters.includes(nextQuarter),
+              categories: nextCategories,
+            },
+          }
+        : null,
       card: {
         id: wc.card.id,
         name: wc.card.name,
@@ -107,12 +208,19 @@ export class WalletRepository {
           rateX100: r.rateX100,
           capCents: r.capCents,
         })),
+        rotatingCategories: rotatingCats.map((rc) => ({
+          quarter: rc.quarter,
+          category: rc.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
+          rateX100: rc.rateX100,
+          capCents: rc.capCents,
+        })),
       },
     };
   }
 
   async findWalletCardsByUserId(
     userId: string,
+    now: Date = new Date(),
   ): Promise<WalletCardWithDetails[]> {
     const walletCards = await this.prisma.walletCard.findMany({
       where: { userId },
@@ -120,12 +228,13 @@ export class WalletRepository {
       orderBy: { createdAt: "desc" },
     });
 
-    return walletCards.map((wc) => this.mapToDetails(wc));
+    return walletCards.map((wc) => this.mapToDetails(wc, now));
   }
 
   async findWalletCardByIdAndUserId(
     id: string,
     userId: string,
+    now: Date = new Date(),
   ): Promise<WalletCardWithDetails | null> {
     const wc = await this.prisma.walletCard.findFirst({
       where: { id, userId },
@@ -133,15 +242,18 @@ export class WalletRepository {
     });
 
     if (!wc) return null;
-    return this.mapToDetails(wc);
+    return this.mapToDetails(wc, now);
   }
 
-  async createWalletCard(data: {
-    userId: string;
-    cardId: string;
-    nickname?: string | null;
-    openedDate?: Date | null;
-  }): Promise<WalletCardWithDetails> {
+  async createWalletCard(
+    data: {
+      userId: string;
+      cardId: string;
+      nickname?: string | null;
+      openedDate?: Date | null;
+    },
+    now: Date = new Date(),
+  ): Promise<WalletCardWithDetails> {
     const created = await this.prisma.walletCard.create({
       data: {
         userId: data.userId,
@@ -152,7 +264,7 @@ export class WalletRepository {
       include: WALLET_CARD_INCLUDE,
     });
 
-    return this.mapToDetails(created);
+    return this.mapToDetails(created, now);
   }
 
   async updateWalletCardNickname(
@@ -283,6 +395,98 @@ export class WalletRepository {
         dueDay: wc.paymentSetting!.dueDay,
         isAutopay: wc.paymentSetting!.isAutopay,
         paidCycles: wc.paidCycles.map((pc) => pc.cycleYearMonth),
+      }));
+  }
+
+  async activateQuarter(
+    walletCardId: string,
+    userId: string,
+    quarter: string,
+    activatedAt: Date,
+  ): Promise<{
+    activation: {
+      walletCardId: string;
+      quarter: string;
+      activatedAt: string;
+    };
+    walletCard: WalletCardWithDetails;
+  } | null> {
+    const existing = await this.prisma.walletCard.findFirst({
+      where: { id: walletCardId, userId },
+    });
+
+    if (!existing) return null;
+
+    const saved = await this.prisma.walletCardQuarterActivation.upsert({
+      where: {
+        walletCardId_quarter: {
+          walletCardId,
+          quarter,
+        },
+      },
+      update: {
+        activatedAt,
+      },
+      create: {
+        walletCardId,
+        quarter,
+        activatedAt,
+      },
+    });
+
+    await this.prisma.notification.updateMany({
+      where: {
+        userId,
+        dismissedAt: null,
+        dedupeKey: `ROTATING_CATEGORY:${walletCardId}:${quarter}`,
+      },
+      data: {
+        dismissedAt: activatedAt,
+      },
+    });
+
+    const updatedCard = await this.findWalletCardByIdAndUserId(
+      walletCardId,
+      userId,
+      activatedAt,
+    );
+    if (!updatedCard) return null;
+
+    return {
+      activation: {
+        walletCardId: saved.walletCardId,
+        quarter: saved.quarter,
+        activatedAt: saved.activatedAt.toISOString(),
+      },
+      walletCard: updatedCard,
+    };
+  }
+
+  async findRotatingReminderCardsByUserId(
+    userId: string,
+  ): Promise<RotatingReminderCardInput[]> {
+    const walletCards = await this.prisma.walletCard.findMany({
+      where: { userId },
+      include: {
+        card: {
+          include: {
+            rotatingCategories: true,
+          },
+        },
+        quarterActivations: true,
+      },
+    });
+
+    return walletCards
+      .filter((wc) => wc.card.rotatingCategories.length > 0)
+      .map((wc) => ({
+        walletCardId: wc.id,
+        userId: wc.userId,
+        cardDisplayName: wc.nickname || wc.card.name,
+        rotatingQuarters: Array.from(
+          new Set(wc.card.rotatingCategories.map((rc) => rc.quarter)),
+        ),
+        activatedQuarters: wc.quarterActivations.map((qa) => qa.quarter),
       }));
   }
 

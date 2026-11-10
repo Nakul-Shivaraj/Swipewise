@@ -80,6 +80,11 @@ export function BestCardRow({ card, category }: BestCardRowProps) {
               ? `Best pick, ${rateDescription}`
               : rateDescription}
           </div>
+          {card.activationNote && (
+            <div className="text-[12px] font-medium text-primary mt-0.5">
+              {card.activationNote}
+            </div>
+          )}
         </div>
       </div>
 

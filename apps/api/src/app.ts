@@ -21,6 +21,7 @@ import {
   deleteWalletCardHandler,
   updateWalletCardPaymentSettingsHandler,
   markWalletCardCyclePaidHandler,
+  activateWalletCardQuarterHandler,
 } from "./controllers/wallet.controller.js";
 import {
   runReminderCronHandler,
@@ -211,6 +212,16 @@ export function createApp(options: AppOptions = {}) {
     "/api/v1/wallet/cards/:id/paid-cycles",
     requireAuth,
     markWalletCardCyclePaidHandler,
+  );
+  app.post(
+    "/api/v1/wallet/cards/:id/quarter-activations",
+    requireAuth,
+    activateWalletCardQuarterHandler,
+  );
+  app.put(
+    "/api/v1/wallet/cards/:id/quarter-activations",
+    requireAuth,
+    activateWalletCardQuarterHandler,
   );
 
   // Replaced placeholder /api/v1/wallet route

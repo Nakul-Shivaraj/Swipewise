@@ -1,7 +1,16 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from "./seed-data.ts";
+import {
+  DEMO_CARDS,
+  DEMO_PROGRAMS,
+  DEMO_ROTATING_CARDS,
+  DEMO_STORES,
+} from "./seed-data.ts";
+import {
+  DEFAULT_USER_TIME_ZONE,
+  resolveCurrentAndNextQuarters,
+} from "./domain/dates/user-date.ts";
 
 function escapeSql(val: string): string {
   return val.replace(/'/g, "''");
@@ -27,10 +36,13 @@ SET cents_per_100_points = EXCLUDED.cents_per_100_points, updated_at = NOW();
 
   // Cards
   statements.push("-- Seed Cards");
-  const cardValues = DEMO_CARDS.map(
-    (c) =>
-      `(gen_random_uuid(), '${escapeSql(c.name)}', '${escapeSql(c.issuer)}', '${escapeSql(c.artColor)}', ${c.isDemo}, (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`,
-  ).join(",\n  ");
+  const allDemoCards = [...DEMO_CARDS, ...DEMO_ROTATING_CARDS];
+  const cardValues = allDemoCards
+    .map(
+      (c) =>
+        `(gen_random_uuid(), '${escapeSql(c.name)}', '${escapeSql(c.issuer)}', '${escapeSql(c.artColor)}', ${c.isDemo}, (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`,
+    )
+    .join(",\n  ");
 
   statements.push(`
 INSERT INTO cards (id, name, issuer, art_color, is_demo, program_id, annual_fee_cents, base_rate_x100, is_retired, created_at, updated_at)
@@ -77,7 +89,7 @@ SET
 
   // Perks
   statements.push("-- Seed Perks");
-  for (const card of DEMO_CARDS) {
+  for (const card of allDemoCards) {
     if (card.perks && card.perks.length > 0) {
       for (const perk of card.perks) {
         statements.push(`
@@ -92,6 +104,54 @@ AND NOT EXISTS (
     }
   }
 
+  // Rotating Categories
+  statements.push("-- Seed Rotating Categories");
+  const [currentQuarter, nextQuarter] = resolveCurrentAndNextQuarters({
+    now: new Date(),
+    timeZone: DEFAULT_USER_TIME_ZONE,
+  });
+  const rotatingValues: string[] = [];
+  for (const card of DEMO_ROTATING_CARDS) {
+    const entries = [...card.rotatingCategories];
+    if (!entries.some((e) => e.quarter === currentQuarter)) {
+      entries.push({
+        quarter: currentQuarter,
+        category: "GAS",
+        rateX100: 500,
+        capCents: 150000,
+      });
+    }
+    if (!entries.some((e) => e.quarter === nextQuarter)) {
+      entries.push({
+        quarter: nextQuarter,
+        category: "GROCERIES",
+        rateX100: 500,
+        capCents: 150000,
+      });
+    }
+    for (const rot of entries) {
+      const capVal =
+        rot.capCents !== undefined && rot.capCents !== null
+          ? rot.capCents
+          : "NULL";
+      rotatingValues.push(
+        `(gen_random_uuid(), (SELECT id FROM cards WHERE name = '${escapeSql(card.name)}'), '${escapeSql(rot.quarter)}', '${rot.category}', ${rot.rateX100}, ${capVal}, NOW(), NOW())`,
+      );
+    }
+  }
+
+  if (rotatingValues.length > 0) {
+    statements.push(`
+INSERT INTO rotating_categories (id, card_id, quarter, category, rate_x100, cap_cents, created_at, updated_at)
+VALUES
+  ${rotatingValues.join(",\n  ")}
+ON CONFLICT (card_id, quarter, category) DO UPDATE
+SET
+  rate_x100 = EXCLUDED.rate_x100,
+  cap_cents = EXCLUDED.cap_cents,
+  updated_at = NOW();
+`);
+  }
   // Stores
   statements.push("-- Seed Stores");
   const storeValues = DEMO_STORES.map(
