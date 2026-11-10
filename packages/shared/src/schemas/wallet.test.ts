@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   addWalletCardRequestSchema,
+  createActivateQuarterRequestSchema,
   markCyclePaidRequestSchema,
   updatePaymentSettingsRequestSchema,
   updateWalletCardRequestSchema,
@@ -86,5 +87,21 @@ describe("Wallet Schemas (US-02 / Issue #11)", () => {
       markCyclePaidRequestSchema.safeParse({ cycleYearMonth: "2026-13" })
         .success,
     ).toBe(false);
+  });
+
+  it("US-05 AC2 (Issue #23): createActivateQuarterRequestSchema accepts only the current or next quarter and rejects other quarters", () => {
+    const schema = createActivateQuarterRequestSchema(["2026-Q4", "2027-Q1"]);
+
+    expect(schema.parse({ quarter: "2026-Q4" })).toEqual({
+      quarter: "2026-Q4",
+    });
+    expect(schema.parse({ quarter: "2027-Q1" })).toEqual({
+      quarter: "2027-Q1",
+    });
+
+    expect(schema.safeParse({ quarter: "2026-Q3" }).success).toBe(false);
+    expect(schema.safeParse({ quarter: "2027-Q2" }).success).toBe(false);
+    expect(schema.safeParse({ quarter: "2026-Q5" }).success).toBe(false);
+    expect(schema.safeParse({ quarter: "invalid" }).success).toBe(false);
   });
 });

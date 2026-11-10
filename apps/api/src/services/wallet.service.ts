@@ -12,6 +12,10 @@ import {
   UpdatePaymentSettingsRequest,
   UpdateWalletCardRequest,
 } from "@swipewise/shared";
+import {
+  DEFAULT_USER_TIME_ZONE,
+  resolveCurrentAndNextQuarters,
+} from "../domain/dates/user-date.js";
 
 export class WalletService {
   private walletRepo: WalletRepository;
@@ -29,11 +33,15 @@ export class WalletService {
     return this.catalogRepo.findAllCards();
   }
 
-  async getWalletCards(userId: string) {
-    return this.walletRepo.findWalletCardsByUserId(userId);
+  async getWalletCards(userId: string, now: Date = new Date()) {
+    return this.walletRepo.findWalletCardsByUserId(userId, now);
   }
 
-  async addWalletCard(userId: string, input: AddWalletCardRequest) {
+  async addWalletCard(
+    userId: string,
+    input: AddWalletCardRequest,
+    now: Date = new Date(),
+  ) {
     const catalogCard = await this.catalogRepo.findCardById(input.cardId);
     if (!catalogCard) {
       return {
@@ -49,12 +57,15 @@ export class WalletService {
       parsedDate = new Date(`${input.openedDate}T00:00:00.000Z`);
     }
 
-    const created = await this.walletRepo.createWalletCard({
-      userId,
-      cardId: input.cardId,
-      nickname: input.nickname ?? null,
-      openedDate: parsedDate,
-    });
+    const created = await this.walletRepo.createWalletCard(
+      {
+        userId,
+        cardId: input.cardId,
+        nickname: input.nickname ?? null,
+        openedDate: parsedDate,
+      },
+      now,
+    );
 
     return { walletCard: created };
   }
@@ -134,6 +145,45 @@ export class WalletService {
     }
 
     return { paidCycle };
+  }
+
+  async getUserCurrentAndNextQuarters(
+    userId: string,
+    now: Date = new Date(),
+  ): Promise<[string, string]> {
+    const timeZone =
+      typeof this.walletRepo.findUserTimeZone === "function"
+        ? await this.walletRepo.findUserTimeZone(userId)
+        : DEFAULT_USER_TIME_ZONE;
+    return resolveCurrentAndNextQuarters({ now, timeZone });
+  }
+
+  async activateQuarter(
+    userId: string,
+    walletCardId: string,
+    quarter: string,
+    now: Date = new Date(),
+  ) {
+    const result = await this.walletRepo.activateQuarter(
+      walletCardId,
+      userId,
+      quarter,
+      now,
+    );
+
+    if (!result) {
+      return {
+        error: {
+          code: "NOT_FOUND",
+          message: "Wallet card not found.",
+        },
+      };
+    }
+
+    return {
+      activation: result.activation,
+      walletCard: result.walletCard,
+    };
   }
 
   async removeWalletCard(userId: string, id: string) {

@@ -444,7 +444,7 @@ describe("WalletPage (US-02 / Issue #11)", () => {
         nickname: null,
         openedDate: "2025-01-10",
         createdAt: "2026-10-01T00:00:00Z",
-        activatedQuarters: [],
+        activatedQuarters: [] as string[],
         rotatingQuarters: {
           currentQuarter: {
             quarter: "2026-Q4",

@@ -1,7 +1,16 @@
-import { execSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from './seed-data.ts';
+import { execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  DEMO_CARDS,
+  DEMO_PROGRAMS,
+  DEMO_ROTATING_CARDS,
+  DEMO_STORES,
+} from "./seed-data.ts";
+import {
+  DEFAULT_USER_TIME_ZONE,
+  resolveCurrentAndNextQuarters,
+} from "./domain/dates/user-date.ts";
 
 function escapeSql(val: string): string {
   return val.replace(/'/g, "''");
@@ -11,11 +20,11 @@ export function buildSeedSql(): string {
   const statements: string[] = [];
 
   // Rewards Programs
-  statements.push('-- Seed Rewards Programs');
+  statements.push("-- Seed Rewards Programs");
   const progValues = DEMO_PROGRAMS.map(
     (p) =>
-      `(gen_random_uuid(), '${escapeSql(p.name)}', ${p.centsPer100Points}, NOW(), NOW())`
-  ).join(',\n  ');
+      `(gen_random_uuid(), '${escapeSql(p.name)}', ${p.centsPer100Points}, NOW(), NOW())`,
+  ).join(",\n  ");
 
   statements.push(`
 INSERT INTO rewards_programs (id, name, cents_per_100_points, created_at, updated_at)
@@ -26,11 +35,14 @@ SET cents_per_100_points = EXCLUDED.cents_per_100_points, updated_at = NOW();
 `);
 
   // Cards
-  statements.push('-- Seed Cards');
-  const cardValues = DEMO_CARDS.map(
-    (c) =>
-      `(gen_random_uuid(), '${escapeSql(c.name)}', '${escapeSql(c.issuer)}', '${escapeSql(c.artColor)}', ${c.isDemo}, (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`
-  ).join(',\n  ');
+  statements.push("-- Seed Cards");
+  const allDemoCards = [...DEMO_CARDS, ...DEMO_ROTATING_CARDS];
+  const cardValues = allDemoCards
+    .map(
+      (c) =>
+        `(gen_random_uuid(), '${escapeSql(c.name)}', '${escapeSql(c.issuer)}', '${escapeSql(c.artColor)}', ${c.isDemo}, (SELECT id FROM rewards_programs WHERE name = '${escapeSql(c.programName)}'), ${c.annualFeeCents}, ${c.baseRateX100}, false, NOW(), NOW())`,
+    )
+    .join(",\n  ");
 
   statements.push(`
 INSERT INTO cards (id, name, issuer, art_color, is_demo, program_id, annual_fee_cents, base_rate_x100, is_retired, created_at, updated_at)
@@ -48,13 +60,16 @@ SET
 `);
 
   // Reward Rules
-  statements.push('-- Seed Reward Rules');
+  statements.push("-- Seed Reward Rules");
   const ruleValues: string[] = [];
   for (const card of DEMO_CARDS) {
     for (const rule of card.rules) {
-      const capVal = rule.capCents !== undefined && rule.capCents !== null ? rule.capCents : 'NULL';
+      const capVal =
+        rule.capCents !== undefined && rule.capCents !== null
+          ? rule.capCents
+          : "NULL";
       ruleValues.push(
-        `(gen_random_uuid(), (SELECT id FROM cards WHERE name = '${escapeSql(card.name)}'), '${rule.category}', ${rule.rateX100}, ${capVal}, NOW(), NOW())`
+        `(gen_random_uuid(), (SELECT id FROM cards WHERE name = '${escapeSql(card.name)}'), '${rule.category}', ${rule.rateX100}, ${capVal}, NOW(), NOW())`,
       );
     }
   }
@@ -63,7 +78,7 @@ SET
     statements.push(`
 INSERT INTO reward_rules (id, card_id, category, rate_x100, cap_cents, created_at, updated_at)
 VALUES
-  ${ruleValues.join(',\n  ')}
+  ${ruleValues.join(",\n  ")}
 ON CONFLICT (card_id, category) DO UPDATE
 SET
   rate_x100 = EXCLUDED.rate_x100,
@@ -72,12 +87,61 @@ SET
 `);
   }
 
+  // Rotating Categories
+  statements.push("-- Seed Rotating Categories");
+  const [currentQuarter, nextQuarter] = resolveCurrentAndNextQuarters({
+    now: new Date(),
+    timeZone: DEFAULT_USER_TIME_ZONE,
+  });
+  const rotatingValues: string[] = [];
+  for (const card of DEMO_ROTATING_CARDS) {
+    const entries = [...card.rotatingCategories];
+    if (!entries.some((e) => e.quarter === currentQuarter)) {
+      entries.push({
+        quarter: currentQuarter,
+        category: "GAS",
+        rateX100: 500,
+        capCents: 150000,
+      });
+    }
+    if (!entries.some((e) => e.quarter === nextQuarter)) {
+      entries.push({
+        quarter: nextQuarter,
+        category: "GROCERIES",
+        rateX100: 500,
+        capCents: 150000,
+      });
+    }
+    for (const rot of entries) {
+      const capVal =
+        rot.capCents !== undefined && rot.capCents !== null
+          ? rot.capCents
+          : "NULL";
+      rotatingValues.push(
+        `(gen_random_uuid(), (SELECT id FROM cards WHERE name = '${escapeSql(card.name)}'), '${escapeSql(rot.quarter)}', '${rot.category}', ${rot.rateX100}, ${capVal}, NOW(), NOW())`,
+      );
+    }
+  }
+
+  if (rotatingValues.length > 0) {
+    statements.push(`
+INSERT INTO rotating_categories (id, card_id, quarter, category, rate_x100, cap_cents, created_at, updated_at)
+VALUES
+  ${rotatingValues.join(",\n  ")}
+ON CONFLICT (card_id, quarter, category) DO UPDATE
+SET
+  rate_x100 = EXCLUDED.rate_x100,
+  cap_cents = EXCLUDED.cap_cents,
+  updated_at = NOW();
+`);
+  }
+
   // Stores
-  statements.push('-- Seed Stores');
+  statements.push("-- Seed Stores");
   const storeValues = DEMO_STORES.map(
     (s) =>
-      `(gen_random_uuid(), '${escapeSql(s.name)}', '${s.category}', NOW(), NOW())`
-  ).join(',\n  ');
+      `(gen_random_uuid(), '${escapeSql(s.name)}', '${s.category}', NOW(), NOW())`,
+  ).join(",\n  ");
 
   statements.push(`
 INSERT INTO stores (id, name, category, created_at, updated_at)
@@ -90,12 +154,12 @@ SET
 `);
 
   // Store Aliases
-  statements.push('-- Seed Store Aliases');
+  statements.push("-- Seed Store Aliases");
   const aliasValues: string[] = [];
   for (const store of DEMO_STORES) {
     for (const alias of store.aliases) {
       aliasValues.push(
-        `(gen_random_uuid(), (SELECT id FROM stores WHERE name = '${escapeSql(store.name)}'), '${escapeSql(alias)}', NOW(), NOW())`
+        `(gen_random_uuid(), (SELECT id FROM stores WHERE name = '${escapeSql(store.name)}'), '${escapeSql(alias)}', NOW(), NOW())`,
       );
     }
   }
@@ -104,43 +168,43 @@ SET
     statements.push(`
 INSERT INTO store_aliases (id, store_id, alias, created_at, updated_at)
 VALUES
-  ${aliasValues.join(',\n  ')}
+  ${aliasValues.join(",\n  ")}
 ON CONFLICT (store_id, alias) DO NOTHING;
 `);
   }
 
-  return statements.join('\n');
+  return statements.join("\n");
 }
 
 export async function seed(): Promise<void> {
-  console.log('Seeding demo data into Supabase database...');
+  console.log("Seeding demo data into Supabase database...");
   const sql = buildSeedSql();
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const prismaConfigPath = path.resolve(__dirname, '../prisma.config.ts');
+  const prismaConfigPath = path.resolve(__dirname, "../prisma.config.ts");
 
   try {
     execSync(`npx prisma db execute --config "${prismaConfigPath}" --stdin`, {
       input: sql,
-      stdio: ['pipe', 'pipe', 'inherit'],
-      encoding: 'utf-8',
+      stdio: ["pipe", "pipe", "inherit"],
+      encoding: "utf-8",
     });
 
-    console.log('Database seed completed successfully.');
+    console.log("Database seed completed successfully.");
   } catch (err) {
-    console.error('Failed to execute seed SQL:', err);
+    console.error("Failed to execute seed SQL:", err);
     throw err;
   }
 }
 
 const isDirectRun =
   process.argv[1] &&
-  (process.argv[1].endsWith('seed.ts') || process.argv[1].endsWith('seed.js'));
+  (process.argv[1].endsWith("seed.ts") || process.argv[1].endsWith("seed.js"));
 
 if (isDirectRun) {
   seed().catch((error) => {
-    console.error('Seed failed:', error);
+    console.error("Seed failed:", error);
     process.exit(1);
   });
 }

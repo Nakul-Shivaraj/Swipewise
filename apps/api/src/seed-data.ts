@@ -11,6 +11,13 @@ export interface SeedRewardRule {
   capCents?: number;
 }
 
+export interface SeedRotatingCategory {
+  quarter: string;
+  category: SeedCategory;
+  rateX100: number;
+  capCents?: number;
+}
+
 export interface SeedCard {
   name: string;
   issuer: string;
@@ -20,6 +27,10 @@ export interface SeedCard {
   annualFeeCents: number;
   baseRateX100: number;
   rules: SeedRewardRule[];
+}
+
+export interface SeedRotatingCard extends SeedCard {
+  rotatingCategories: SeedRotatingCategory[];
 }
 
 export interface SeedStore {
@@ -83,6 +94,45 @@ export const DEMO_CARDS: SeedCard[] = [
     annualFeeCents: 0, // $0 fee
     baseRateX100: 150, // 1.5% base
     rules: [],
+  },
+];
+
+export const DEMO_ROTATING_CARDS: SeedRotatingCard[] = [
+  {
+    name: "Orbit Quarterly",
+    issuer: "Demo Bank",
+    artColor: "#6C5CE7",
+    isDemo: true,
+    programName: "Cash Back",
+    annualFeeCents: 0,
+    baseRateX100: 100, // 1% base
+    rules: [],
+    rotatingCategories: [
+      {
+        quarter: "2026-Q4",
+        category: "GAS",
+        rateX100: 500, // 5% up to $1,500
+        capCents: 150000,
+      },
+      {
+        quarter: "2027-Q1",
+        category: "GROCERIES",
+        rateX100: 500, // 5% up to $1,500
+        capCents: 150000,
+      },
+      {
+        quarter: "2027-Q2",
+        category: "DINING",
+        rateX100: 500,
+        capCents: 150000,
+      },
+      {
+        quarter: "2027-Q3",
+        category: "TRAVEL",
+        rateX100: 500,
+        capCents: 150000,
+      },
+    ],
   },
 ];
 

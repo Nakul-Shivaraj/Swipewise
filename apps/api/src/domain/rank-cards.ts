@@ -10,6 +10,13 @@ export interface RankableRewardRule {
   capCents?: number | null;
 }
 
+export interface RankableRotatingRule {
+  quarter: string;
+  category: CategoryName;
+  rateX100: number;
+  capCents?: number | null;
+}
+
 export interface RankableCard {
   walletCardId: string;
   cardId: string;
@@ -25,12 +32,23 @@ export interface RankableCard {
     centsPer100Points: number;
   };
   rules: RankableRewardRule[];
+  rotatingRules?: RankableRotatingRule[];
+  activatedQuarters?: string[];
 }
 
 export interface RankCardsInput {
   cards: RankableCard[];
   category: CategoryName;
   amountCents?: number;
+  currentQuarter?: string;
+}
+
+function formatBonusRateNote(rateX100: number): string {
+  const rateNum = rateX100 / 100;
+  const rateStr = Number.isInteger(rateNum)
+    ? String(rateNum)
+    : rateNum.toFixed(2).replace(/0$/, "");
+  return `Activate to earn ${rateStr}%`;
 }
 
 /**
@@ -42,14 +60,41 @@ export function calculateCardRewardCents(
   card: RankableCard,
   category: CategoryName,
   amountCents: number = DEFAULT_PURCHASE_AMOUNT_CENTS,
+  currentQuarter?: string,
 ): {
   rewardCents: number;
   appliedRateX100: number;
   usedBaseRate: boolean;
   capCents: number | null;
   isCapExceeded: boolean;
+  activationNote: string | null;
 } {
-  const matchingRule = card.rules.find((r) => r.category === category);
+  const staticRule = card.rules.find((r) => r.category === category);
+  const rotatingRule = (card.rotatingRules ?? []).find(
+    (r) =>
+      r.category === category &&
+      (currentQuarter === undefined || r.quarter === currentQuarter),
+  );
+  const isRotatingActivated = rotatingRule
+    ? (card.activatedQuarters ?? []).includes(rotatingRule.quarter)
+    : false;
+
+  const activationNote =
+    rotatingRule && !isRotatingActivated
+      ? formatBonusRateNote(rotatingRule.rateX100)
+      : null;
+
+  let matchingRule: RankableRewardRule | undefined = staticRule;
+  if (rotatingRule && isRotatingActivated) {
+    if (!matchingRule || rotatingRule.rateX100 >= matchingRule.rateX100) {
+      matchingRule = {
+        category: rotatingRule.category,
+        rateX100: rotatingRule.rateX100,
+        capCents: rotatingRule.capCents ?? null,
+      };
+    }
+  }
+
   const centsPer100PointsBig = BigInt(card.program.centsPer100Points);
   const baseRateBig = BigInt(card.baseRateX100);
   const totalAmountBig = BigInt(amountCents);
@@ -63,6 +108,7 @@ export function calculateCardRewardCents(
       usedBaseRate: true,
       capCents: null,
       isCapExceeded: false,
+      activationNote,
     };
   }
 
@@ -84,6 +130,7 @@ export function calculateCardRewardCents(
       usedBaseRate: false,
       capCents,
       isCapExceeded: true,
+      activationNote,
     };
   }
 
@@ -95,11 +142,12 @@ export function calculateCardRewardCents(
     usedBaseRate: false,
     capCents,
     isCapExceeded: false,
+    activationNote,
   };
 }
 
 /**
- * Pure ranking function for US-03 (Issue #12).
+ * Pure ranking function for US-03 (Issue #12) and US-05 (Issue #23).
  * Ranks user wallet cards by rewardCents (descending), breaking ties by
  * lower annualFeeCents (ascending), then card name A–Z.
  */
@@ -107,7 +155,12 @@ export function rankCards(input: RankCardsInput): RankedCardResult[] {
   const amountCents = input.amountCents ?? DEFAULT_PURCHASE_AMOUNT_CENTS;
 
   const evaluated = input.cards.map((card) => {
-    const calc = calculateCardRewardCents(card, input.category, amountCents);
+    const calc = calculateCardRewardCents(
+      card,
+      input.category,
+      amountCents,
+      input.currentQuarter,
+    );
     return {
       walletCardId: card.walletCardId,
       cardId: card.cardId,
@@ -125,6 +178,7 @@ export function rankCards(input: RankCardsInput): RankedCardResult[] {
       capCents: calc.capCents,
       isCapExceeded: calc.isCapExceeded,
       rewardCents: calc.rewardCents,
+      activationNote: calc.activationNote,
     };
   });
 

@@ -27,6 +27,7 @@ import {
   WalletCardPaymentForm,
   WalletCardPaymentSummary,
 } from "../components/WalletCardPaymentSettings.js";
+import { WalletCardRotatingCategories } from "../components/WalletCardRotatingCategories.js";
 import { apiFetch } from "../api.js";
 
 function getBestCategoryLabel(card: CatalogCard): string {
@@ -504,6 +505,17 @@ export function WalletPage() {
                         </span>
                       </div>
 
+                      <WalletCardRotatingCategories
+                        card={wc}
+                        onUpdated={(updated) =>
+                          setWalletCards((prev) =>
+                            prev.map((c) =>
+                              c.id === updated.id ? updated : c,
+                            ),
+                          )
+                        }
+                      />
+
                       {/* Expanded actions and details */}
                       {isExpanded && (
                         <div className="mt-4 pt-3 border-t border-ink-muted/15 flex items-center justify-between gap-3">
@@ -568,6 +580,14 @@ export function WalletPage() {
                           : `${formatCents(wc.card.annualFeeCents)}/yr`}
                       </span>
                     </div>
+                    <WalletCardRotatingCategories
+                      card={wc}
+                      onUpdated={(updated) =>
+                        setWalletCards((prev) =>
+                          prev.map((c) => (c.id === updated.id ? updated : c)),
+                        )
+                      }
+                    />
                   </div>
                 ))}
 
