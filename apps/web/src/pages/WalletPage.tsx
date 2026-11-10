@@ -330,9 +330,12 @@ export function WalletPage() {
             >
               Points
             </Link>
-            <span className="py-5 text-[15px] font-medium text-ink-muted/70 cursor-default">
+            <Link
+              to="/tracker"
+              className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"
+            >
               Tracker
-            </span>
+            </Link>
             <Link
               to="/alerts"
               className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"
@@ -1000,10 +1003,13 @@ export function WalletPage() {
           <WalletIcon className="w-5 h-5 mb-0.5" aria-hidden="true" />
           <span>Wallet</span>
         </Link>
-        <span className="flex flex-col items-center justify-center px-5 py-1.5 rounded-full text-ink-muted/70 font-medium text-[11px]">
+        <Link
+          to="/tracker"
+          className="flex flex-col items-center justify-center px-5 py-1.5 rounded-full text-ink-muted hover:text-ink font-medium text-[11px]"
+        >
           <BarChart3 className="w-5 h-5 mb-0.5" aria-hidden="true" />
           <span>Tracker</span>
-        </span>
+        </Link>
         <Link
           to="/alerts"
           className="flex flex-col items-center justify-center px-5 py-1.5 rounded-full text-ink-muted hover:text-ink font-medium text-[11px]"

@@ -111,6 +111,27 @@ describe("Prisma Schema Definition (Issue #9)", () => {
     expect(schema).toContain("@@unique([userId, programId])");
     expect(schema).toContain('@@map("program_balances")');
   });
+  it("Issue #21: schema defines PerkPeriod, Perk, and PerkUsage models", () => {
+    expect(schema).toMatch(/enum\s+PerkPeriod\s+{/);
+    const perkPeriodEnumBlock =
+      schema.split(/enum\s+PerkPeriod\s+{/)[1]?.split("}")[0] || "";
+    expect(perkPeriodEnumBlock).toContain("MONTHLY");
+    expect(perkPeriodEnumBlock).toContain("QUARTERLY");
+    expect(perkPeriodEnumBlock).toContain("SEMIANNUAL");
+    expect(perkPeriodEnumBlock).toContain("ANNUAL");
+
+    expect(schema).toMatch(/model\s+Perk\s+{/);
+    expect(schema).toMatch(/amountCents\s+Int\s+@map\("amount_cents"\)/);
+    expect(schema).toContain('@@map("perks")');
+
+    expect(schema).toMatch(/model\s+PerkUsage\s+{/);
+    expect(schema).toMatch(
+      /usedCents\s+Int\s+@default\(0\)\s+@map\("used_cents"\)/,
+    );
+    expect(schema).toMatch(/periodKey\s+String\s+@map\("period_key"\)/);
+    expect(schema).toContain("@@unique([walletCardId, perkId, periodKey])");
+    expect(schema).toContain('@@map("perk_usages")');
+  });
 
   it("Issue #23: schema defines RotatingCategory and WalletCardQuarterActivation", () => {
     expect(schema).toMatch(/model\s+RotatingCategory\s+{/);

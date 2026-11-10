@@ -87,6 +87,23 @@ SET
 `);
   }
 
+  // Perks
+  statements.push("-- Seed Perks");
+  for (const card of allDemoCards) {
+    if (card.perks && card.perks.length > 0) {
+      for (const perk of card.perks) {
+        statements.push(`
+INSERT INTO perks (id, card_id, name, amount_cents, period, created_at, updated_at)
+SELECT gen_random_uuid(), c.id, '${escapeSql(perk.name)}', ${perk.amountCents}, '${perk.period}'::"PerkPeriod", NOW(), NOW()
+FROM cards c WHERE c.name = '${escapeSql(card.name)}'
+AND NOT EXISTS (
+  SELECT 1 FROM perks p WHERE p.card_id = c.id AND p.name = '${escapeSql(perk.name)}'
+);
+`);
+      }
+    }
+  }
+
   // Rotating Categories
   statements.push("-- Seed Rotating Categories");
   const [currentQuarter, nextQuarter] = resolveCurrentAndNextQuarters({
@@ -135,7 +152,6 @@ SET
   updated_at = NOW();
 `);
   }
-
   // Stores
   statements.push("-- Seed Stores");
   const storeValues = DEMO_STORES.map(

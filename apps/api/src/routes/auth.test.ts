@@ -6,7 +6,7 @@ import { UserRecord, userRepo } from "../repositories/user.repository.js";
 import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 describe("POST /api/v1/auth/signup (US-01)", () => {
-  const app = createApp();
+  const app = createApp({ rateLimitMax: 100 });
 
   beforeEach(async () => {
     await userRepo.clear();

@@ -1,4 +1,5 @@
 export type SeedCategory = "GROCERIES" | "DINING" | "GAS" | "TRAVEL";
+export type SeedPerkPeriod = "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL";
 
 export interface SeedRewardsProgram {
   name: string;
@@ -9,6 +10,12 @@ export interface SeedRewardRule {
   category: SeedCategory;
   rateX100: number;
   capCents?: number;
+}
+
+export interface SeedPerk {
+  name: string;
+  amountCents: number;
+  period: SeedPerkPeriod;
 }
 
 export interface SeedRotatingCategory {
@@ -27,6 +34,7 @@ export interface SeedCard {
   annualFeeCents: number;
   baseRateX100: number;
   rules: SeedRewardRule[];
+  perks?: SeedPerk[];
 }
 
 export interface SeedRotatingCard extends SeedCard {
@@ -82,6 +90,18 @@ export const DEMO_CARDS: SeedCard[] = [
       {
         category: "TRAVEL",
         rateX100: 200, // 2x travel
+      },
+    ],
+    perks: [
+      {
+        name: "Dining credit",
+        amountCents: 1000,
+        period: "MONTHLY",
+      },
+      {
+        name: "Ride credit",
+        amountCents: 1500,
+        period: "MONTHLY",
       },
     ],
   },
@@ -148,9 +168,14 @@ export const DEMO_STORES: SeedStore[] = [
     aliases: ["Trader Joes", "TJ's", "TJs"],
   },
   {
-    name: "Chipotle",
-    category: "DINING",
-    aliases: ["Chipotle Mexican Grill"],
+    name: "Whole Foods",
+    category: "GROCERIES",
+    aliases: ["Whole Foods Market", "WFM"],
+  },
+  {
+    name: "Chevron",
+    category: "GAS",
+    aliases: ["Chevron Gas", "Chevron Station"],
   },
   {
     name: "Shell",
@@ -158,8 +183,23 @@ export const DEMO_STORES: SeedStore[] = [
     aliases: ["Shell Oil", "Shell Gas Station"],
   },
   {
+    name: "Starbucks",
+    category: "DINING",
+    aliases: ["Starbucks Coffee", "sbux"],
+  },
+  {
+    name: "Chipotle",
+    category: "DINING",
+    aliases: ["Chipotle Mexican Grill"],
+  },
+  {
+    name: "Delta Air Lines",
+    category: "TRAVEL",
+    aliases: ["Delta", "Delta Airlines", "delta.com"],
+  },
+  {
     name: "United Airlines",
     category: "TRAVEL",
-    aliases: ["United", "United Air"],
+    aliases: ["United", "united.com"],
   },
 ];

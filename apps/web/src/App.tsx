@@ -5,6 +5,7 @@ import { LoginPage } from "./pages/LoginPage.js";
 import { HomePage } from "./pages/HomePage.js";
 import { WalletPage } from "./pages/WalletPage.js";
 import { PointsPage } from "./pages/PointsPage.js";
+import { TrackerPage } from "./pages/TrackerPage.js";
 import { AlertsPage } from "./pages/AlertsPage.js";
 import { AuthGuard } from "./components/AuthGuard.js";
 
@@ -35,6 +36,14 @@ export function App() {
           element={
             <AuthGuard>
               <PointsPage />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/tracker"
+          element={
+            <AuthGuard>
+              <TrackerPage />
             </AuthGuard>
           }
         />

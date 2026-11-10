@@ -57,6 +57,22 @@ describe("Demo Seed Data (Issue #9)", () => {
     const travelRule = harbor?.rules.find((r) => r.category === "TRAVEL");
     expect(travelRule).toBeDefined();
     expect(travelRule?.rateX100).toBe(200); // 2x
+
+    // Issue #21: Harbor Travel Plus demo perks
+    expect(harbor?.perks).toBeDefined();
+    expect(harbor?.perks).toHaveLength(2);
+    const dining = harbor?.perks?.find((p) => p.name === "Dining credit");
+    expect(dining).toMatchObject({
+      name: "Dining credit",
+      amountCents: 1000,
+      period: "MONTHLY",
+    });
+    const ride = harbor?.perks?.find((p) => p.name === "Ride credit");
+    expect(ride).toMatchObject({
+      name: "Ride credit",
+      amountCents: 1500,
+      period: "MONTHLY",
+    });
   });
 
   it("AC: defines Basic Flat demo card with 1.5% base, $0 fee, issuer, and artColor", () => {
