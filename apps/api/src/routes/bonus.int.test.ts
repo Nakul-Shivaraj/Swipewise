@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
-import { bonusRepo } from "../repositories/bonus.repository.js";
 import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 describe("Bonus Tracker Integration Tests (US-07 / Issue #22)", () => {
@@ -350,11 +349,17 @@ describe("Bonus Tracker Integration Tests (US-07 / Issue #22)", () => {
     });
     expect(beforeCheck).toBeNull();
 
-    // Call backfill function
-    const backfilledCount = await bonusRepo.backfillWalletCardBonusOffers();
-    expect(backfilledCount).toBe(1);
+    // Verify GET /api/v1/bonus-offers creates and returns the bonus offer copy
+    const bonusRes = await request(app)
+      .get("/api/v1/bonus-offers")
+      .set("Cookie", userCookie);
+    expect(bonusRes.status).toBe(200);
+    expect(bonusRes.body.bonuses).toHaveLength(1);
+    expect(bonusRes.body.bonuses[0].cardName).toBe("Harbor Travel Plus");
+    expect(bonusRes.body.bonuses[0].requiredSpendCents).toBe(300000);
+    expect(bonusRes.body.bonuses[0].bonusPoints).toBe(60000);
 
-    // Verify copy was created matching catalog card offer
+    // Verify copy was persisted matching catalog card offer
     const afterCheck = await prisma.walletCardBonusOffer.findUnique({
       where: { walletCardId },
     });
@@ -363,9 +368,12 @@ describe("Bonus Tracker Integration Tests (US-07 / Issue #22)", () => {
     expect(afterCheck?.windowMonths).toBe(3);
     expect(afterCheck?.bonusPoints).toBe(60000);
 
-    // Verify idempotency: safe to run more than once
-    const secondRunCount = await bonusRepo.backfillWalletCardBonusOffers();
-    expect(secondRunCount).toBe(0);
+    // Verify idempotency: safe to run multiple times without duplicate rows
+    const secondBonusRes = await request(app)
+      .get("/api/v1/bonus-offers")
+      .set("Cookie", userCookie);
+    expect(secondBonusRes.status).toBe(200);
+    expect(secondBonusRes.body.bonuses).toHaveLength(1);
 
     const afterSecondCheck = await prisma.walletCardBonusOffer.findUnique({
       where: { walletCardId },

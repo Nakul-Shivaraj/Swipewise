@@ -13,45 +13,6 @@ export class BonusRepository {
     this.prisma = prisma;
   }
 
-  async backfillWalletCardBonusOffers(): Promise<number> {
-    const walletCardsWithoutOffer = await this.prisma.walletCard.findMany({
-      where: {
-        bonusOffer: null,
-        card: {
-          bonusOffer: {
-            isNot: null,
-          },
-        },
-      },
-      include: {
-        card: {
-          include: {
-            bonusOffer: true,
-          },
-        },
-      },
-    });
-
-    let count = 0;
-    for (const wc of walletCardsWithoutOffer) {
-      if (wc.card.bonusOffer) {
-        await this.prisma.walletCardBonusOffer.upsert({
-          where: { walletCardId: wc.id },
-          create: {
-            walletCardId: wc.id,
-            spendRequirementCents: wc.card.bonusOffer.spendRequirementCents,
-            windowMonths: wc.card.bonusOffer.windowMonths,
-            bonusPoints: wc.card.bonusOffer.bonusPoints,
-          },
-          update: {},
-        });
-        count++;
-      }
-    }
-
-    return count;
-  }
-
   async getUserBonusOffers(
     userId: string,
     now: Date = new Date(),
