@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   addWalletCardRequestSchema,
+  markCyclePaidRequestSchema,
+  updatePaymentSettingsRequestSchema,
   updateWalletCardRequestSchema,
 } from "./wallet.js";
 
@@ -57,5 +59,32 @@ describe("Wallet Schemas (US-02 / Issue #11)", () => {
         "Don't enter card numbers. SwipeWise only needs the card name.",
       );
     }
+  });
+
+  it("US-08 AC1 (Issue #20): validates dueDay as a whole number 1–31 and cycleYearMonth as YYYY-MM", () => {
+    expect(
+      updatePaymentSettingsRequestSchema.parse({ dueDay: 1, isAutopay: false }),
+    ).toEqual({ dueDay: 1, isAutopay: false });
+    expect(
+      updatePaymentSettingsRequestSchema.parse({ dueDay: 31, isAutopay: true }),
+    ).toEqual({ dueDay: 31, isAutopay: true });
+
+    expect(
+      updatePaymentSettingsRequestSchema.safeParse({ dueDay: 0 }).success,
+    ).toBe(false);
+    expect(
+      updatePaymentSettingsRequestSchema.safeParse({ dueDay: 32 }).success,
+    ).toBe(false);
+    expect(
+      updatePaymentSettingsRequestSchema.safeParse({ dueDay: 15.5 }).success,
+    ).toBe(false);
+
+    expect(
+      markCyclePaidRequestSchema.parse({ cycleYearMonth: "2026-11" }),
+    ).toEqual({ cycleYearMonth: "2026-11" });
+    expect(
+      markCyclePaidRequestSchema.safeParse({ cycleYearMonth: "2026-13" })
+        .success,
+    ).toBe(false);
   });
 });

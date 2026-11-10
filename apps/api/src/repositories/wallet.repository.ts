@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "../db.js";
 import { CatalogCardItem } from "./catalog.repository.js";
+import { PaymentReminderCardInput } from "../domain/payment-reminders.js";
 
 export interface WalletCardWithDetails {
   id: string;
@@ -10,8 +11,24 @@ export interface WalletCardWithDetails {
   openedDate: string | null;
   createdAt: string;
   updatedAt: string;
+  paymentSettings: {
+    dueDay: number;
+    isAutopay: boolean;
+  } | null;
+  paidCycles: string[];
   card: CatalogCardItem;
 }
+
+const WALLET_CARD_INCLUDE = {
+  paymentSetting: true,
+  paidCycles: true,
+  card: {
+    include: {
+      program: true,
+      rewardRules: true,
+    },
+  },
+} as const;
 
 export class WalletRepository {
   private prisma: PrismaClient;
@@ -28,6 +45,13 @@ export class WalletRepository {
     openedDate: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    paymentSetting?: {
+      dueDay: number;
+      isAutopay: boolean;
+    } | null;
+    paidCycles?: Array<{
+      cycleYearMonth: string;
+    }>;
     card: {
       id: string;
       name: string;
@@ -57,6 +81,15 @@ export class WalletRepository {
         : null,
       createdAt: wc.createdAt.toISOString(),
       updatedAt: wc.updatedAt.toISOString(),
+      paymentSettings: wc.paymentSetting
+        ? {
+            dueDay: wc.paymentSetting.dueDay,
+            isAutopay: wc.paymentSetting.isAutopay,
+          }
+        : null,
+      paidCycles: wc.paidCycles
+        ? wc.paidCycles.map((pc) => pc.cycleYearMonth)
+        : [],
       card: {
         id: wc.card.id,
         name: wc.card.name,
@@ -83,14 +116,7 @@ export class WalletRepository {
   ): Promise<WalletCardWithDetails[]> {
     const walletCards = await this.prisma.walletCard.findMany({
       where: { userId },
-      include: {
-        card: {
-          include: {
-            program: true,
-            rewardRules: true,
-          },
-        },
-      },
+      include: WALLET_CARD_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
 
@@ -103,14 +129,7 @@ export class WalletRepository {
   ): Promise<WalletCardWithDetails | null> {
     const wc = await this.prisma.walletCard.findFirst({
       where: { id, userId },
-      include: {
-        card: {
-          include: {
-            program: true,
-            rewardRules: true,
-          },
-        },
-      },
+      include: WALLET_CARD_INCLUDE,
     });
 
     if (!wc) return null;
@@ -130,14 +149,7 @@ export class WalletRepository {
         nickname: data.nickname ?? null,
         openedDate: data.openedDate ?? null,
       },
-      include: {
-        card: {
-          include: {
-            program: true,
-            rewardRules: true,
-          },
-        },
-      },
+      include: WALLET_CARD_INCLUDE,
     });
 
     return this.mapToDetails(created);
@@ -159,17 +171,119 @@ export class WalletRepository {
       data: {
         nickname,
       },
-      include: {
-        card: {
-          include: {
-            program: true,
-            rewardRules: true,
-          },
-        },
-      },
+      include: WALLET_CARD_INCLUDE,
     });
 
     return this.mapToDetails(updated);
+  }
+
+  async upsertPaymentSettings(
+    walletCardId: string,
+    userId: string,
+    data: { dueDay: number; isAutopay: boolean },
+  ): Promise<WalletCardWithDetails | null> {
+    const existing = await this.prisma.walletCard.findFirst({
+      where: { id: walletCardId, userId },
+    });
+
+    if (!existing) return null;
+
+    await this.prisma.walletCardPaymentSetting.upsert({
+      where: { walletCardId },
+      update: {
+        dueDay: data.dueDay,
+        isAutopay: data.isAutopay,
+      },
+      create: {
+        walletCardId,
+        dueDay: data.dueDay,
+        isAutopay: data.isAutopay,
+      },
+    });
+
+    return this.findWalletCardByIdAndUserId(walletCardId, userId);
+  }
+
+  async markCyclePaid(
+    walletCardId: string,
+    userId: string,
+    cycleYearMonth: string,
+    paidAt: Date,
+  ): Promise<{
+    walletCardId: string;
+    cycleYearMonth: string;
+    paidAt: string;
+  } | null> {
+    const existing = await this.prisma.walletCard.findFirst({
+      where: { id: walletCardId, userId },
+    });
+
+    if (!existing) return null;
+
+    const saved = await this.prisma.walletCardPaidCycle.upsert({
+      where: {
+        walletCardId_cycleYearMonth: {
+          walletCardId,
+          cycleYearMonth,
+        },
+      },
+      update: {
+        paidAt,
+      },
+      create: {
+        walletCardId,
+        cycleYearMonth,
+        paidAt,
+      },
+    });
+
+    await this.prisma.notification.updateMany({
+      where: {
+        userId,
+        dismissedAt: null,
+        dedupeKey: {
+          startsWith: `PAYMENT_DUE:${walletCardId}:${cycleYearMonth}:`,
+        },
+      },
+      data: {
+        dismissedAt: paidAt,
+      },
+    });
+
+    return {
+      walletCardId: saved.walletCardId,
+      cycleYearMonth: saved.cycleYearMonth,
+      paidAt: saved.paidAt.toISOString(),
+    };
+  }
+
+  async findPaymentReminderCardsByUserId(
+    userId: string,
+  ): Promise<PaymentReminderCardInput[]> {
+    const walletCards = await this.prisma.walletCard.findMany({
+      where: {
+        userId,
+        paymentSetting: {
+          isNot: null,
+        },
+      },
+      include: {
+        card: true,
+        paymentSetting: true,
+        paidCycles: true,
+      },
+    });
+
+    return walletCards
+      .filter((wc) => wc.paymentSetting !== null)
+      .map((wc) => ({
+        walletCardId: wc.id,
+        userId: wc.userId,
+        cardDisplayName: wc.nickname || wc.card.name,
+        dueDay: wc.paymentSetting!.dueDay,
+        isAutopay: wc.paymentSetting!.isAutopay,
+        paidCycles: wc.paidCycles.map((pc) => pc.cycleYearMonth),
+      }));
   }
 
   async deleteWalletCard(id: string, userId: string): Promise<boolean> {

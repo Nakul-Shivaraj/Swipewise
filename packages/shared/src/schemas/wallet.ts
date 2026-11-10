@@ -40,6 +40,40 @@ export type UpdateWalletCardRequest = z.infer<
   typeof updateWalletCardRequestSchema
 >;
 
+export const dueDaySchema = z
+  .number()
+  .int("Due day must be a whole number between 1 and 31.")
+  .min(1, "Due day must be between 1 and 31.")
+  .max(31, "Due day must be between 1 and 31.");
+
+export const walletCardPaymentSettingsSchema = z.object({
+  dueDay: dueDaySchema,
+  isAutopay: z.boolean(),
+});
+
+export type WalletCardPaymentSettings = z.infer<
+  typeof walletCardPaymentSettingsSchema
+>;
+
+export const updatePaymentSettingsRequestSchema = z.object({
+  dueDay: dueDaySchema,
+  isAutopay: z.boolean().default(false),
+});
+
+export type UpdatePaymentSettingsRequest = z.infer<
+  typeof updatePaymentSettingsRequestSchema
+>;
+
+export const cycleYearMonthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Invalid cycle format. Use YYYY-MM.");
+
+export const markCyclePaidRequestSchema = z.object({
+  cycleYearMonth: cycleYearMonthSchema,
+});
+
+export type MarkCyclePaidRequest = z.infer<typeof markCyclePaidRequestSchema>;
+
 export const walletCardItemSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
@@ -48,6 +82,8 @@ export const walletCardItemSchema = z.object({
   openedDate: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),
+  paymentSettings: walletCardPaymentSettingsSchema.nullable().optional(),
+  paidCycles: z.array(cycleYearMonthSchema).optional(),
   card: catalogCardSchema,
 });
 

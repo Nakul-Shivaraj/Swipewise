@@ -115,6 +115,42 @@ export function AlertsPage() {
     }
   };
 
+  const handleMarkPaid = async (item: NotificationItem) => {
+    const parts = item.dedupeKey.split(":");
+    const walletCardId = parts[1];
+    const cycleCandidate = parts[2];
+    const cycleYearMonth =
+      cycleCandidate && /^\d{4}-\d{2}$/.test(cycleCandidate)
+        ? cycleCandidate
+        : item.dueDate.slice(0, 7);
+
+    if (!walletCardId) {
+      await handleDismiss(item.id);
+      return;
+    }
+
+    try {
+      const res = await apiFetch(
+        `/api/v1/wallet/cards/${walletCardId}/paid-cycles`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cycleYearMonth }),
+        },
+      );
+      if (!res.ok) {
+        setError("Something went wrong. Try again.");
+        return;
+      }
+      const prefix = `PAYMENT_DUE:${walletCardId}:${cycleYearMonth}:`;
+      setNotifications((prev) =>
+        prev.filter((n) => n.id !== item.id && !n.dedupeKey.startsWith(prefix)),
+      );
+    } catch {
+      setError("Something went wrong. Try again.");
+    }
+  };
+
   const handleDismissAll = async () => {
     setIsDismissingAll(true);
     try {
@@ -346,15 +382,28 @@ export function AlertsPage() {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        aria-label={`Dismiss ${item.title}`}
-                        onClick={() => void handleDismiss(item.id)}
-                        className="shrink-0 px-3.5 h-[44px] rounded-full bg-glass/75 hover:bg-glass border border-glass/90 text-[13px] font-semibold text-primary flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Check className="w-4 h-4" aria-hidden="true" />
-                        <span>Dismiss</span>
-                      </button>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {item.type === "PAYMENT_DUE" && (
+                          <button
+                            type="button"
+                            aria-label={`Mark paid for ${item.title}`}
+                            onClick={() => void handleMarkPaid(item)}
+                            className="px-3.5 h-[44px] rounded-full bg-primary hover:bg-primary-pressed text-[13px] font-semibold text-on-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Check className="w-4 h-4" aria-hidden="true" />
+                            <span>Mark paid</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Dismiss ${item.title}`}
+                          onClick={() => void handleDismiss(item.id)}
+                          className="px-3.5 h-[44px] rounded-full bg-glass/75 hover:bg-glass border border-glass/90 text-[13px] font-semibold text-primary flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" aria-hidden="true" />
+                          <span>Dismiss</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

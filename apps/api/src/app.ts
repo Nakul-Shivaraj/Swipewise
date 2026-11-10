@@ -19,6 +19,8 @@ import {
   addWalletCardHandler,
   updateWalletCardHandler,
   deleteWalletCardHandler,
+  updateWalletCardPaymentSettingsHandler,
+  markWalletCardCyclePaidHandler,
 } from "./controllers/wallet.controller.js";
 import {
   runReminderCronHandler,
@@ -178,11 +180,26 @@ export function createApp(options: AppOptions = {}) {
   // Catalog routes (Issue #11)
   app.get("/api/v1/catalog/cards", requireAuth, getCatalogCardsHandler);
 
-  // Wallet routes (Issue #11)
+  // Wallet routes (Issue #11 & #20)
   app.get("/api/v1/wallet/cards", requireAuth, getWalletCardsHandler);
   app.post("/api/v1/wallet/cards", requireAuth, addWalletCardHandler);
   app.patch("/api/v1/wallet/cards/:id", requireAuth, updateWalletCardHandler);
   app.delete("/api/v1/wallet/cards/:id", requireAuth, deleteWalletCardHandler);
+  app.put(
+    "/api/v1/wallet/cards/:id/payment-settings",
+    requireAuth,
+    updateWalletCardPaymentSettingsHandler,
+  );
+  app.patch(
+    "/api/v1/wallet/cards/:id/payment-settings",
+    requireAuth,
+    updateWalletCardPaymentSettingsHandler,
+  );
+  app.post(
+    "/api/v1/wallet/cards/:id/paid-cycles",
+    requireAuth,
+    markWalletCardCyclePaidHandler,
+  );
 
   // Replaced placeholder /api/v1/wallet route
   app.get("/api/v1/wallet", requireAuth, getWalletCardsHandler);

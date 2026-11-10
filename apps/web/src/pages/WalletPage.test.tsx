@@ -420,7 +420,7 @@ describe("WalletPage (US-02 / Issue #11)", () => {
     await userEvent.click(autopaySwitch);
 
     const savePaymentBtn = within(dialog).getByRole("button", {
-      name: /Save payment settings/i,
+      name: /Update payment settings/i,
     });
     await userEvent.click(savePaymentBtn);
 
