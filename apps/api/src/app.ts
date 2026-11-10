@@ -30,6 +30,10 @@ import {
   getNotificationPreferencesHandler,
   updateNotificationPreferencesHandler,
 } from "./controllers/notification.controller.js";
+import {
+  getPointsBalancesHandler,
+  upsertPointsBalanceHandler,
+} from "./controllers/points-balance.controller.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -38,6 +42,7 @@ import { WalletRepository } from "./repositories/wallet.repository.js";
 import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { StoreRepository } from "./repositories/store.repository.js";
 import { NotificationRepository } from "./repositories/notification.repository.js";
+import { PointsBalanceRepository } from "./repositories/points-balance.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -64,6 +69,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("catalogRepo", new CatalogRepository(activePrisma));
   app.set("storeRepo", new StoreRepository(activePrisma));
   app.set("notificationRepo", new NotificationRepository(activePrisma));
+  app.set("pointsBalanceRepo", new PointsBalanceRepository(activePrisma));
   if (options.cronSecret !== undefined) {
     app.set("cronSecret", options.cronSecret);
   }
@@ -243,6 +249,14 @@ export function createApp(options: AppOptions = {}) {
     "/api/v1/notification-preferences",
     requireAuth,
     updateNotificationPreferencesHandler,
+  );
+
+  // Points balances routes (Issue #24)
+  app.get("/api/v1/points-balances", requireAuth, getPointsBalancesHandler);
+  app.put(
+    "/api/v1/points-balances/:programId",
+    requireAuth,
+    upsertPointsBalanceHandler,
   );
 
   // Error handler
