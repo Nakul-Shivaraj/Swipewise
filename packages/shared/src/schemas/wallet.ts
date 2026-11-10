@@ -74,6 +74,55 @@ export const markCyclePaidRequestSchema = z.object({
 
 export type MarkCyclePaidRequest = z.infer<typeof markCyclePaidRequestSchema>;
 
+export const quarterSchema = z
+  .string()
+  .regex(
+    /^\d{4}-Q[1-4]$/,
+    "Invalid quarter format. Use YYYY-Q1 through YYYY-Q4.",
+  );
+
+export const activateQuarterRequestSchema = z.object({
+  quarter: quarterSchema,
+});
+
+export type ActivateQuarterRequest = z.infer<
+  typeof activateQuarterRequestSchema
+>;
+
+export function createActivateQuarterRequestSchema(
+  allowedQuarters: readonly [string, string],
+) {
+  return z.object({
+    quarter: quarterSchema.refine(
+      (q) => allowedQuarters.includes(q),
+      "Only the current or next quarter can be activated.",
+    ),
+  });
+}
+
+export const walletCardQuarterViewSchema = z.object({
+  quarter: quarterSchema,
+  isActivated: z.boolean(),
+  categories: z.array(
+    z.object({
+      category: z.enum(["GROCERIES", "DINING", "GAS", "TRAVEL"]),
+      rateX100: z.number().int().positive(),
+      capCents: z.number().int().positive().nullable().optional(),
+    }),
+  ),
+});
+
+export type WalletCardQuarterView = z.infer<typeof walletCardQuarterViewSchema>;
+
+export const walletCardRotatingScheduleSchema = z.object({
+  currentQuarter: walletCardQuarterViewSchema,
+  nextQuarter: walletCardQuarterViewSchema,
+});
+
+export type WalletCardRotatingSchedule = z.infer<
+  typeof walletCardRotatingScheduleSchema
+>;
+
 export const walletCardItemSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
@@ -84,6 +133,8 @@ export const walletCardItemSchema = z.object({
   updatedAt: z.string().optional(),
   paymentSettings: walletCardPaymentSettingsSchema.nullable().optional(),
   paidCycles: z.array(cycleYearMonthSchema).optional(),
+  activatedQuarters: z.array(quarterSchema).optional(),
+  rotatingQuarters: walletCardRotatingScheduleSchema.nullable().optional(),
   card: catalogCardSchema,
 });
 

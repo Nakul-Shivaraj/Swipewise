@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import {
   addWalletCardRequestSchema,
+  createActivateQuarterRequestSchema,
   markCyclePaidRequestSchema,
   updatePaymentSettingsRequestSchema,
   updateWalletCardRequestSchema,
@@ -55,8 +56,14 @@ export async function getWalletCardsHandler(
       return;
     }
 
+    const nowProvider =
+      (req.app.get("nowProvider") as (() => Date) | undefined) ||
+      (() => new Date());
     const service = getWalletService(req);
-    const walletCards = await service.getWalletCards(authReq.user.id);
+    const walletCards = await service.getWalletCards(
+      authReq.user.id,
+      nowProvider(),
+    );
     res.status(200).json({ walletCards });
   } catch (err) {
     next(err);
@@ -91,10 +98,14 @@ export async function addWalletCardHandler(
       return;
     }
 
+    const nowProvider =
+      (req.app.get("nowProvider") as (() => Date) | undefined) ||
+      (() => new Date());
     const service = getWalletService(req);
     const result = await service.addWalletCard(
       authReq.user.id,
       parseResult.data,
+      nowProvider(),
     );
 
     if (result.error) {
@@ -332,6 +343,81 @@ export async function markWalletCardCyclePaidHandler(
     }
 
     res.status(200).json({ paidCycle: result.paidCycle });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function activateWalletCardQuarterHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      res.status(401).json({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
+        },
+      });
+      return;
+    }
+
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!id || typeof id !== "string") {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Card ID is required.",
+        },
+      });
+      return;
+    }
+
+    const nowProvider =
+      (req.app.get("nowProvider") as (() => Date) | undefined) ||
+      (() => new Date());
+    const now = nowProvider();
+    const service = getWalletService(req);
+    const allowedQuarters = await service.getUserCurrentAndNextQuarters(
+      authReq.user.id,
+      now,
+    );
+
+    const parseResult = createActivateQuarterRequestSchema(
+      allowedQuarters,
+    ).safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            parseResult.error.issues[0]?.message ||
+            "Only the current or next quarter can be activated.",
+        },
+      });
+      return;
+    }
+
+    const result = await service.activateQuarter(
+      authReq.user.id,
+      id,
+      parseResult.data.quarter,
+      now,
+    );
+
+    if (result.error) {
+      res.status(404).json({ error: result.error });
+      return;
+    }
+
+    res.status(200).json({
+      activation: result.activation,
+      walletCard: result.walletCard,
+    });
   } catch (err) {
     next(err);
   }

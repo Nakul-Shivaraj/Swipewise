@@ -18,6 +18,12 @@ export interface CatalogCardItem {
     rateX100: number;
     capCents: number | null;
   }>;
+  rotatingCategories?: Array<{
+    quarter: string;
+    category: "GROCERIES" | "DINING" | "GAS" | "TRAVEL";
+    rateX100: number;
+    capCents: number | null;
+  }>;
 }
 
 export class CatalogRepository {
@@ -33,6 +39,7 @@ export class CatalogRepository {
       include: {
         program: true,
         rewardRules: true,
+        rotatingCategories: true,
       },
       orderBy: { name: "asc" },
     });
@@ -54,6 +61,12 @@ export class CatalogRepository {
         rateX100: r.rateX100,
         capCents: r.capCents,
       })),
+      rotatingCategories: c.rotatingCategories.map((rc) => ({
+        quarter: rc.quarter,
+        category: rc.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
+        rateX100: rc.rateX100,
+        capCents: rc.capCents,
+      })),
     }));
   }
 
@@ -63,6 +76,7 @@ export class CatalogRepository {
       include: {
         program: true,
         rewardRules: true,
+        rotatingCategories: true,
       },
     });
 
@@ -84,6 +98,12 @@ export class CatalogRepository {
         category: r.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
         rateX100: r.rateX100,
         capCents: r.capCents,
+      })),
+      rotatingCategories: card.rotatingCategories.map((rc) => ({
+        quarter: rc.quarter,
+        category: rc.category as "GROCERIES" | "DINING" | "GAS" | "TRAVEL",
+        rateX100: rc.rateX100,
+        capCents: rc.capCents,
       })),
     };
   }

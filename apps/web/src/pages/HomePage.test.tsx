@@ -217,6 +217,58 @@ describe("HomePage — Best card by category (US-03 / Issue #12)", () => {
       ).toBeGreaterThan(0);
     });
   });
+
+  it('US-05 AC3 (Issue #23): displays "Activate to earn 5%" note for unactivated rotating card in best-card results', async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        category: "GAS",
+        amountCents: 10000,
+        isEmptyWallet: false,
+        rankedCards: [
+          {
+            walletCardId: "wc-orbit",
+            cardId: "card-orbit",
+            name: "Orbit Quarterly",
+            issuer: "Demo Bank",
+            artColor: "#6C5CE7",
+            isDemo: true,
+            nickname: null,
+            annualFeeCents: 0,
+            programName: "Cash Back",
+            centsPer100Points: 100,
+            appliedRateX100: 100,
+            baseRateX100: 100,
+            usedBaseRate: true,
+            capCents: null,
+            isCapExceeded: false,
+            rewardCents: 100,
+            activationNote: "Activate to earn 5%",
+            rank: 1,
+            isBestPick: true,
+          },
+        ],
+      }),
+    } as Response);
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    const gasButtons = screen.getAllByRole("button", { name: /Gas/i });
+    await user.click(gasButtons[0]!);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Orbit Quarterly").length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/Activate to earn 5%/i).length,
+      ).toBeGreaterThan(0);
+    });
+  });
 });
 
 describe("HomePage — Store search (US-04 / Issue #13)", () => {

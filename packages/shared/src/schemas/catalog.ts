@@ -8,6 +8,15 @@ export const catalogRateSchema = z.object({
 
 export type CatalogRate = z.infer<typeof catalogRateSchema>;
 
+export const rotatingCategoryRateSchema = z.object({
+  quarter: z.string().regex(/^\d{4}-Q[1-4]$/),
+  category: z.enum(["GROCERIES", "DINING", "GAS", "TRAVEL"]),
+  rateX100: z.number().int().positive(),
+  capCents: z.number().int().positive().nullable().optional(),
+});
+
+export type RotatingCategoryRate = z.infer<typeof rotatingCategoryRateSchema>;
+
 export const catalogCardSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
@@ -21,6 +30,7 @@ export const catalogCardSchema = z.object({
     centsPer100Points: z.number().int().positive(),
   }),
   rates: z.array(catalogRateSchema),
+  rotatingCategories: z.array(rotatingCategoryRateSchema).optional(),
 });
 
 export type CatalogCard = z.infer<typeof catalogCardSchema>;

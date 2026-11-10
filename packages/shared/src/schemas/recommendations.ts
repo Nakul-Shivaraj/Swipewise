@@ -75,6 +75,7 @@ export interface RankedCardResult {
   capCents: number | null;
   isCapExceeded: boolean;
   rewardCents: number;
+  activationNote?: string | null;
   rank: number;
   isBestPick: boolean;
 }

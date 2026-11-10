@@ -19,6 +19,7 @@ import { walletRepo as defaultWalletRepo } from "../repositories/wallet.reposito
 import { pointsBalanceRepo as defaultPointsBalanceRepo } from "../repositories/points-balance.repository.js";
 import { createPaymentDueReminderGenerator } from "../domain/payment-reminders.js";
 import { createPointsExpiryReminderGenerator } from "../domain/points-expiry.js";
+import { createRotatingCategoryReminderGenerator } from "../domain/rotating-categories.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
 defaultReminderRegistry.register(
@@ -31,6 +32,12 @@ defaultReminderRegistry.register(
   "POINTS_EXPIRY",
   createPointsExpiryReminderGenerator((userId) =>
     defaultPointsBalanceRepo.findReminderBalancesByUserId(userId),
+  ),
+);
+defaultReminderRegistry.register(
+  "ROTATING_CATEGORY",
+  createRotatingCategoryReminderGenerator((userId) =>
+    defaultWalletRepo.findRotatingReminderCardsByUserId(userId),
   ),
 );
 

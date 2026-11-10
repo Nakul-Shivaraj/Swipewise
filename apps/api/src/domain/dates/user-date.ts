@@ -107,3 +107,47 @@ export function getCurrentAndNextCycleYearMonths(
 
   return [currentCycle, nextCycle];
 }
+
+export function getQuarterForCalendarDate(localDate: string): string {
+  const parts = localDate.split("-").map(Number);
+  const year = parts[0] ?? 1970;
+  const month = parts[1] ?? 1;
+  const q = Math.floor((month - 1) / 3) + 1;
+  return `${String(year).padStart(4, "0")}-Q${q}`;
+}
+
+export function getNextQuarter(quarter: string): string {
+  const match = /^(\d{4})-Q([1-4])$/.exec(quarter);
+  const year = match ? Number(match[1]) : 1970;
+  const q = match ? Number(match[2]) : 1;
+  if (q === 4) {
+    return `${String(year + 1).padStart(4, "0")}-Q1`;
+  }
+  return `${String(year).padStart(4, "0")}-Q${q + 1}`;
+}
+
+export function getCurrentAndNextQuarters(localDate: string): [string, string] {
+  const current = getQuarterForCalendarDate(localDate);
+  const next = getNextQuarter(current);
+  return [current, next];
+}
+
+export function getQuarterStartDate(quarter: string): string {
+  const match = /^(\d{4})-Q([1-4])$/.exec(quarter);
+  const year = match ? Number(match[1]) : 1970;
+  const q = match ? Number(match[2]) : 1;
+  const startMonth = (q - 1) * 3 + 1;
+  return formatCalendarDate(year, startMonth, 1);
+}
+
+export function resolveUserQuarter(context: ClockContext): string {
+  const localDate = resolveLocalCalendarDate(context);
+  return getQuarterForCalendarDate(localDate);
+}
+
+export function resolveCurrentAndNextQuarters(
+  context: ClockContext,
+): [string, string] {
+  const localDate = resolveLocalCalendarDate(context);
+  return getCurrentAndNextQuarters(localDate);
+}
