@@ -68,9 +68,12 @@ export function PointsPage() {
             >
               Points
             </Link>
-            <span className="py-5 text-[15px] font-medium text-ink-muted/70 cursor-default">
+            <Link
+              to="/tracker"
+              className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"
+            >
               Tracker
-            </span>
+            </Link>
             <Link
               to="/alerts"
               className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"

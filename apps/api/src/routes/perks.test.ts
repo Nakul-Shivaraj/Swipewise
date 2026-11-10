@@ -304,17 +304,14 @@ describe("Perks API routes (US-06 / Issue #21)", () => {
 
   describe("POST /api/v1/wallet/cards/:walletCardId/perks/:perkId/usage", () => {
     it("AC2: marks a perk as partly used", async () => {
-      const { csrfToken, csrfCookie } = await getCsrfTokenAndCookie(
-        app,
-        cookieUserA,
-      );
+      const { token, cookie } = await getCsrfTokenAndCookie(app);
 
       const res = await request(app)
         .post(
           `/api/v1/wallet/cards/${WALLET_CARD_A_ID}/perks/${PERK_RIDE_ID}/usage`,
         )
-        .set("Cookie", `${cookieUserA}; ${csrfCookie}`)
-        .set("x-csrf-token", csrfToken)
+        .set("Cookie", `${cookieUserA}; ${cookie}`)
+        .set("x-csrf-token", token)
         .send({ usedCents: 750 });
 
       expect(res.status).toBe(200);
@@ -324,17 +321,14 @@ describe("Perks API routes (US-06 / Issue #21)", () => {
     });
 
     it("AC2: marks a perk as fully used", async () => {
-      const { csrfToken, csrfCookie } = await getCsrfTokenAndCookie(
-        app,
-        cookieUserA,
-      );
+      const { token, cookie } = await getCsrfTokenAndCookie(app);
 
       const res = await request(app)
         .post(
           `/api/v1/wallet/cards/${WALLET_CARD_A_ID}/perks/${PERK_RIDE_ID}/usage`,
         )
-        .set("Cookie", `${cookieUserA}; ${csrfCookie}`)
-        .set("x-csrf-token", csrfToken)
+        .set("Cookie", `${cookieUserA}; ${cookie}`)
+        .set("x-csrf-token", token)
         .send({ isFull: true });
 
       expect(res.status).toBe(200);
@@ -344,17 +338,14 @@ describe("Perks API routes (US-06 / Issue #21)", () => {
     });
 
     it("AC2: rejects usage when usedCents exceeds perk amount with 400", async () => {
-      const { csrfToken, csrfCookie } = await getCsrfTokenAndCookie(
-        app,
-        cookieUserA,
-      );
+      const { token, cookie } = await getCsrfTokenAndCookie(app);
 
       const res = await request(app)
         .post(
           `/api/v1/wallet/cards/${WALLET_CARD_A_ID}/perks/${PERK_RIDE_ID}/usage`,
         )
-        .set("Cookie", `${cookieUserA}; ${csrfCookie}`)
-        .set("x-csrf-token", csrfToken)
+        .set("Cookie", `${cookieUserA}; ${cookie}`)
+        .set("x-csrf-token", token)
         .send({ usedCents: 2000 });
 
       expect(res.status).toBe(400);
@@ -362,18 +353,15 @@ describe("Perks API routes (US-06 / Issue #21)", () => {
     });
 
     it("security: returns 404 when user tries to update another user's wallet card perk", async () => {
-      const { csrfToken, csrfCookie } = await getCsrfTokenAndCookie(
-        app,
-        cookieUserA,
-      );
+      const { token, cookie } = await getCsrfTokenAndCookie(app);
 
       // User A attempts to update User B's card
       const res = await request(app)
         .post(
           `/api/v1/wallet/cards/${WALLET_CARD_B_ID}/perks/${PERK_DINING_ID}/usage`,
         )
-        .set("Cookie", `${cookieUserA}; ${csrfCookie}`)
-        .set("x-csrf-token", csrfToken)
+        .set("Cookie", `${cookieUserA}; ${cookie}`)
+        .set("x-csrf-token", token)
         .send({ usedCents: 500 });
 
       expect(res.status).toBe(404);

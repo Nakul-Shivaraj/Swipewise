@@ -91,13 +91,19 @@ describe("TrackerPage (US-06 / Issue #21)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Tracker")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Tracker" }),
+      ).toBeInTheDocument();
       // Stats summary: $20.00 left out of $25.00
-      expect(screen.getByText("$20.00 left")).toBeInTheDocument();
+      expect(screen.getAllByText("$20.00 left").length).toBeGreaterThanOrEqual(
+        1,
+      );
       // Perk items
       expect(screen.getByText("Dining credit")).toBeInTheDocument();
       expect(screen.getByText("Ride credit")).toBeInTheDocument();
-      expect(screen.getByText("Harbor Travel Plus")).toBeInTheDocument();
+      expect(
+        screen.getAllByText("Harbor Travel Plus").length,
+      ).toBeGreaterThanOrEqual(1);
     });
   });
 

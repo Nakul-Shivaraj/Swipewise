@@ -13,6 +13,13 @@ enum Category {
   TRAVEL
 }
 
+enum PerkPeriod {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
 enum ReminderType {
   PAYMENT_DUE
   PERK_ENDING
@@ -63,6 +70,7 @@ model Card {
   updatedAt      DateTime       @updatedAt @map("updated_at")
   rewardRules    RewardRule[]
   walletCards    WalletCard[]
+  perks          Perk[]
 
   @@map("cards")
 }
@@ -116,6 +124,7 @@ model WalletCard {
   updatedAt      DateTime                  @updatedAt @map("updated_at")
   paymentSetting WalletCardPaymentSetting?
   paidCycles     WalletCardPaidCycle[]
+  perkUsages     PerkUsage[]
 
   @@map("wallet_cards")
 }
@@ -144,7 +153,6 @@ model WalletCardPaidCycle {
   @@unique([walletCardId, cycleYearMonth])
   @@map("wallet_card_paid_cycles")
 }
-
 
 model RateLimit {
   key       String   @id
@@ -197,4 +205,33 @@ model ProgramBalance {
 
   @@unique([userId, programId])
   @@map("program_balances")
+}
+
+model Perk {
+  id          String      @id @default(uuid())
+  cardId      String      @map("card_id")
+  card        Card        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  name        String
+  amountCents Int         @map("amount_cents")
+  period      PerkPeriod
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  usages      PerkUsage[]
+
+  @@map("perks")
+}
+
+model PerkUsage {
+  id           String     @id @default(uuid())
+  walletCardId String     @map("wallet_card_id")
+  walletCard   WalletCard @relation(fields: [walletCardId], references: [id], onDelete: Cascade)
+  perkId       String     @map("perk_id")
+  perk         Perk       @relation(fields: [perkId], references: [id], onDelete: Cascade)
+  periodKey    String     @map("period_key")
+  usedCents    Int        @default(0) @map("used_cents")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@unique([walletCardId, perkId, periodKey])
+  @@map("perk_usages")
 }

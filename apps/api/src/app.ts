@@ -34,6 +34,10 @@ import {
   getPointsBalancesHandler,
   upsertPointsBalanceHandler,
 } from "./controllers/points-balance.controller.js";
+import {
+  getPerksHandler,
+  markPerkUsageHandler,
+} from "./controllers/perk.controller.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -43,6 +47,7 @@ import { CatalogRepository } from "./repositories/catalog.repository.js";
 import { StoreRepository } from "./repositories/store.repository.js";
 import { NotificationRepository } from "./repositories/notification.repository.js";
 import { PointsBalanceRepository } from "./repositories/points-balance.repository.js";
+import { PerkRepository } from "./repositories/perk.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -70,6 +75,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("storeRepo", new StoreRepository(activePrisma));
   app.set("notificationRepo", new NotificationRepository(activePrisma));
   app.set("pointsBalanceRepo", new PointsBalanceRepository(activePrisma));
+  app.set("perkRepo", new PerkRepository(activePrisma));
   if (options.cronSecret !== undefined) {
     app.set("cronSecret", options.cronSecret);
   }
@@ -209,6 +215,21 @@ export function createApp(options: AppOptions = {}) {
 
   // Replaced placeholder /api/v1/wallet route
   app.get("/api/v1/wallet", requireAuth, getWalletCardsHandler);
+
+  // Perks routes (Issue #21)
+  app.get("/api/v1/perks", requireAuth, getPerksHandler);
+  app.get("/api/v1/wallet/perks", requireAuth, getPerksHandler);
+  app.post(
+    "/api/v1/wallet/cards/:walletCardId/perks/:perkId/usage",
+    requireAuth,
+    markPerkUsageHandler,
+  );
+  app.put(
+    "/api/v1/wallet/cards/:walletCardId/perks/:perkId/usage",
+    requireAuth,
+    markPerkUsageHandler,
+  );
+  app.post("/api/v1/perks/:perkId/use", requireAuth, markPerkUsageHandler);
 
   // Daily reminder cron job (Issue #19) — skips login & CSRF, requires Bearer CRON_SECRET
   app.get("/api/v1/cron/reminders", runReminderCronHandler);

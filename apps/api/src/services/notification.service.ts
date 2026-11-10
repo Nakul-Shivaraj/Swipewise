@@ -17,8 +17,10 @@ import {
 } from "../repositories/notification.repository.js";
 import { walletRepo as defaultWalletRepo } from "../repositories/wallet.repository.js";
 import { pointsBalanceRepo as defaultPointsBalanceRepo } from "../repositories/points-balance.repository.js";
+import { perkRepo as defaultPerkRepo } from "../repositories/perk.repository.js";
 import { createPaymentDueReminderGenerator } from "../domain/payment-reminders.js";
 import { createPointsExpiryReminderGenerator } from "../domain/points-expiry.js";
+import { createPerkEndingReminderGenerator } from "../domain/perks.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
 defaultReminderRegistry.register(
@@ -31,6 +33,12 @@ defaultReminderRegistry.register(
   "POINTS_EXPIRY",
   createPointsExpiryReminderGenerator((userId) =>
     defaultPointsBalanceRepo.findReminderBalancesByUserId(userId),
+  ),
+);
+defaultReminderRegistry.register(
+  "PERK_ENDING",
+  createPerkEndingReminderGenerator((userId) =>
+    defaultPerkRepo.findPerkReminderCardsByUserId(userId),
   ),
 );
 
