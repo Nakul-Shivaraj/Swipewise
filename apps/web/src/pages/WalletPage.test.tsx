@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { WalletPage } from "./WalletPage.js";
+import { setCachedCsrfToken } from "../api.js";
 
 const MOCK_CATALOG = {
   cards: [
@@ -51,6 +52,7 @@ const MOCK_WALLET = {
 describe("WalletPage (US-02 / Issue #11)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    setCachedCsrfToken("test-csrf-token");
   });
 
   it("AC4: displays empty state 'Add your first card to get started.' when wallet is empty", async () => {
@@ -331,6 +333,103 @@ describe("WalletPage (US-02 / Issue #11)", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({ nickname: "Groceries & Supermarket" }),
+        }),
+      );
+    });
+  });
+
+  it("US-08 AC1 (Issue #20): displays due day and autopay on wallet card and saves updated payment settings", async () => {
+    let walletState = [
+      {
+        ...MOCK_WALLET.walletCards[0]!,
+        paymentSettings: { dueDay: 15, isAutopay: false },
+      },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          url.includes("/api/v1/wallet/cards") &&
+          (!init || init.method === "GET" || !init.method)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ walletCards: walletState }),
+          });
+        }
+        if (url.includes("/api/v1/catalog/cards")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(MOCK_CATALOG),
+          });
+        }
+        if (
+          url === "/api/v1/wallet/cards/wc-1/payment-settings" &&
+          init?.method === "PUT"
+        ) {
+          const body = JSON.parse(init.body as string) as {
+            dueDay: number;
+            isAutopay: boolean;
+          };
+          walletState = [
+            {
+              ...walletState[0]!,
+              paymentSettings: {
+                dueDay: body.dueDay,
+                isAutopay: body.isAutopay,
+              },
+            },
+          ];
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                walletCard: walletState[0],
+                paymentSettings: walletState[0]!.paymentSettings,
+              }),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <MemoryRouter>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Day 15/i).length).toBeGreaterThan(0);
+    });
+
+    const editButtons = screen.getAllByRole("button", { name: /edit/i });
+    await userEvent.click(editButtons[0]!);
+
+    const dialog = screen.getByRole("dialog");
+    const dueDayInput = within(dialog).getByLabelText(/Payment due day/i);
+    await userEvent.clear(dueDayInput);
+    await userEvent.type(dueDayInput, "25");
+
+    const autopaySwitch = within(dialog).getByRole("switch", {
+      name: /Autopay/i,
+    });
+    await userEvent.click(autopaySwitch);
+
+    const savePaymentBtn = within(dialog).getByRole("button", {
+      name: /Save payment settings/i,
+    });
+    await userEvent.click(savePaymentBtn);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/wallet/cards/wc-1/payment-settings",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ dueDay: 25, isAutopay: true }),
         }),
       );
     });

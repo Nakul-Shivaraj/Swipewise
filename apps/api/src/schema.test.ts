@@ -85,4 +85,20 @@ describe("Prisma Schema Definition (Issue #9)", () => {
     expect(schema).toContain("@@unique([userId, type])");
     expect(schema).toContain('@@map("notification_preferences")');
   });
+
+  it("Issue #20: schema defines WalletCardPaymentSetting and WalletCardPaidCycle linked to WalletCard", () => {
+    expect(schema).toMatch(/model\s+WalletCardPaymentSetting\s+{/);
+    expect(schema).toMatch(/dueDay\s+Int\s+@map\("due_day"\)/);
+    expect(schema).toMatch(
+      /isAutopay\s+Boolean\s+@default\(false\)\s+@map\("is_autopay"\)/,
+    );
+    expect(schema).toContain('@@map("wallet_card_payment_settings")');
+
+    expect(schema).toMatch(/model\s+WalletCardPaidCycle\s+{/);
+    expect(schema).toMatch(
+      /cycleYearMonth\s+String\s+@map\("cycle_year_month"\)/,
+    );
+    expect(schema).toContain("@@unique([walletCardId, cycleYearMonth])");
+    expect(schema).toContain('@@map("wallet_card_paid_cycles")');
+  });
 });
