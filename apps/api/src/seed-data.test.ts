@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_CARDS, DEMO_PROGRAMS, DEMO_STORES } from "./seed-data.ts";
+import {
+  DEMO_CARDS,
+  DEMO_PROGRAMS,
+  DEMO_ROTATING_CARDS,
+  DEMO_STORES,
+} from "./seed-data.ts";
 import { buildSeedSql } from "./seed.ts";
 
 describe("Demo Seed Data (Issue #9)", () => {
@@ -163,5 +168,36 @@ describe("Demo Seed Data (Issue #9)", () => {
     expect(sql).toContain("Chipotle");
     expect(sql).toContain("Shell");
     expect(sql).toContain("United Airlines");
+    expect(sql).toContain("Orbit Quarterly");
+    expect(sql).toContain("INSERT INTO rotating_categories");
+    expect(sql).toContain("ON CONFLICT (card_id, quarter, category) DO UPDATE");
+  });
+
+  it("Issue #23: defines Orbit Quarterly demo rotating card with made-up name and current/next quarter categories", () => {
+    expect(DEMO_ROTATING_CARDS.length).toBeGreaterThanOrEqual(1);
+    const orbit = DEMO_ROTATING_CARDS.find((c) => c.name === "Orbit Quarterly");
+    expect(orbit).toBeDefined();
+    expect(orbit?.issuer).toBe("Demo Bank");
+    expect(orbit?.isDemo).toBe(true);
+    expect(orbit?.baseRateX100).toBe(100);
+    expect(orbit?.rotatingCategories.length).toBeGreaterThanOrEqual(2);
+
+    const forbiddenKeywords = [
+      "chase",
+      "sapphire",
+      "freedom",
+      "flex",
+      "amex",
+      "american express",
+      "citi",
+      "capital one",
+      "discover",
+    ];
+    for (const card of DEMO_ROTATING_CARDS) {
+      const lower = card.name.toLowerCase();
+      for (const kw of forbiddenKeywords) {
+        expect(lower).not.toContain(kw);
+      }
+    }
   });
 });

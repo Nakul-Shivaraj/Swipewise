@@ -434,4 +434,125 @@ describe("WalletPage (US-02 / Issue #11)", () => {
       );
     });
   });
+
+  it("US-05 AC1 & AC2 (Issue #23): displays this and next quarter rotating categories and activates a quarter", async () => {
+    let walletState = [
+      {
+        id: "wc-orbit",
+        userId: "u-1",
+        cardId: "card-orbit",
+        nickname: null,
+        openedDate: "2025-01-10",
+        createdAt: "2026-10-01T00:00:00Z",
+        activatedQuarters: [],
+        rotatingQuarters: {
+          currentQuarter: {
+            quarter: "2026-Q4",
+            isActivated: false,
+            categories: [{ category: "GAS", rateX100: 500, capCents: 150000 }],
+          },
+          nextQuarter: {
+            quarter: "2027-Q1",
+            isActivated: false,
+            categories: [
+              { category: "GROCERIES", rateX100: 500, capCents: 150000 },
+            ],
+          },
+        },
+        card: {
+          id: "card-orbit",
+          name: "Orbit Quarterly",
+          issuer: "Demo Bank",
+          artColor: "#6C5CE7",
+          isDemo: true,
+          annualFeeCents: 0,
+          baseRateX100: 100,
+          program: { name: "Cash Back", centsPer100Points: 100 },
+          rates: [],
+        },
+      },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (
+          url.includes("/api/v1/wallet/cards") &&
+          (!init || init.method === "GET" || !init.method)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ walletCards: walletState }),
+          });
+        }
+        if (url.includes("/api/v1/catalog/cards")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(MOCK_CATALOG),
+          });
+        }
+        if (
+          url === "/api/v1/wallet/cards/wc-orbit/quarter-activations" &&
+          init?.method === "POST"
+        ) {
+          const body = JSON.parse(init.body as string) as { quarter: string };
+          walletState = [
+            {
+              ...walletState[0]!,
+              activatedQuarters: [body.quarter],
+              rotatingQuarters: {
+                ...walletState[0]!.rotatingQuarters,
+                currentQuarter: {
+                  ...walletState[0]!.rotatingQuarters.currentQuarter,
+                  isActivated: body.quarter === "2026-Q4",
+                },
+              },
+            },
+          ];
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                activation: {
+                  walletCardId: "wc-orbit",
+                  quarter: body.quarter,
+                  activatedAt: new Date().toISOString(),
+                },
+                walletCard: walletState[0],
+              }),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <MemoryRouter>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/2026-Q4/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/2027-Q1/i).length).toBeGreaterThan(0);
+    });
+
+    const activateButtons = screen.getAllByRole("button", {
+      name: /Activate 2026-Q4/i,
+    });
+    await userEvent.click(activateButtons[0]!);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/wallet/cards/wc-orbit/quarter-activations",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ quarter: "2026-Q4" }),
+        }),
+      );
+      expect(screen.getAllByText(/Activated/i).length).toBeGreaterThan(0);
+    });
+  });
 });

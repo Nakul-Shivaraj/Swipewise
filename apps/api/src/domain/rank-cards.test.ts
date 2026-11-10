@@ -313,4 +313,104 @@ describe("rankCards (US-03)", () => {
 
     expect(ranked).toEqual([]);
   });
+
+  describe("Rotating bonus categories (US-05 / Issue #23)", () => {
+    const orbitQuarterlyBase: RankableCard = {
+      walletCardId: "wc-orbit",
+      cardId: "card-orbit",
+      name: "Orbit Quarterly",
+      issuer: "Demo Bank",
+      artColor: "#6C5CE7",
+      isDemo: true,
+      nickname: null,
+      annualFeeCents: 0,
+      baseRateX100: 100, // 1% base
+      program: {
+        name: "Cash Back",
+        centsPer100Points: 100,
+      },
+      rules: [],
+      rotatingRules: [
+        {
+          quarter: "2026-Q4",
+          category: "GAS",
+          rateX100: 500, // 5% rotating bonus
+          capCents: 150000,
+        },
+        {
+          quarter: "2027-Q1",
+          category: "GROCERIES",
+          rateX100: 500,
+          capCents: 150000,
+        },
+      ],
+      activatedQuarters: [],
+    };
+
+    it("AC3: unactivated rotating card is ranked at its base rate and includes the 'Activate to earn X%' note", () => {
+      const walletCards = [...buildSeedWalletCards(), orbitQuarterlyBase];
+
+      const ranked = rankCards({
+        cards: walletCards,
+        category: "GAS",
+        amountCents: 10000,
+        currentQuarter: "2026-Q4",
+      });
+
+      const orbitResult = ranked.find((c) => c.name === "Orbit Quarterly");
+      expect(orbitResult).toBeDefined();
+      expect(orbitResult?.rewardCents).toBe(100); // $1.00 at 1% base rate
+      expect(orbitResult?.appliedRateX100).toBe(100);
+      expect(orbitResult?.usedBaseRate).toBe(true);
+      expect(orbitResult?.activationNote).toBe("Activate to earn 5%");
+
+      // Basic Flat ($1.50) and Harbor Travel Plus ($1.25) rank ahead of unactivated Orbit Quarterly ($1.00)
+      expect(ranked[0]?.name).toBe("Basic Flat");
+      expect(ranked[0]?.activationNote).toBeNull();
+    });
+
+    it("AC2 & AC3: activated rotating card uses the bonus rate and has no activation note", () => {
+      const activatedOrbit: RankableCard = {
+        ...orbitQuarterlyBase,
+        activatedQuarters: ["2026-Q4"],
+      };
+      const walletCards = [...buildSeedWalletCards(), activatedOrbit];
+
+      const ranked = rankCards({
+        cards: walletCards,
+        category: "GAS",
+        amountCents: 10000,
+        currentQuarter: "2026-Q4",
+      });
+
+      // Activated Orbit Quarterly earns 5% ($5.00 = 500 cents) and ranks #1
+      expect(ranked[0]?.name).toBe("Orbit Quarterly");
+      expect(ranked[0]?.rewardCents).toBe(500);
+      expect(ranked[0]?.appliedRateX100).toBe(500);
+      expect(ranked[0]?.usedBaseRate).toBe(false);
+      expect(ranked[0]?.isBestPick).toBe(true);
+      expect(ranked[0]?.activationNote).toBeNull();
+    });
+
+    it("applies cap splitting when an activated rotating category rule exceeds its cap", () => {
+      const activatedOrbit: RankableCard = {
+        ...orbitQuarterlyBase,
+        activatedQuarters: ["2026-Q4"],
+      };
+
+      // $2,000.00 (200000 cents) purchase on GAS with $1,500.00 (150000 cents) cap:
+      // $1,500 at 5% (7500 cents) + $500 at 1% base (500 cents) = 8000 cents ($80.00)
+      const ranked = rankCards({
+        cards: [activatedOrbit],
+        category: "GAS",
+        amountCents: 200000,
+        currentQuarter: "2026-Q4",
+      });
+
+      expect(ranked[0]?.rewardCents).toBe(8000);
+      expect(ranked[0]?.isCapExceeded).toBe(true);
+      expect(ranked[0]?.capCents).toBe(150000);
+      expect(ranked[0]?.activationNote).toBeNull();
+    });
+  });
 });
