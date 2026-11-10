@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../app.js";
 import { prisma } from "../db.js";
+import { bonusRepo } from "../repositories/bonus.repository.js";
 import { getCsrfTokenAndCookie } from "./test-helpers.js";
 
 describe("Bonus Tracker Integration Tests (US-07 / Issue #22)", () => {
@@ -309,5 +310,66 @@ describe("Bonus Tracker Integration Tests (US-07 / Issue #22)", () => {
     expect(invalidNoteRes.body.error.message).toBe(
       "Don't enter card numbers. SwipeWise only needs the card name.",
     );
+  });
+
+  it("backfills bonus offers for existing wallet cards added before the feature in an idempotent way", async () => {
+    const csrfReg = await getCsrfTokenAndCookie(app);
+    const signupRes = await request(app)
+      .post("/api/v1/auth/signup")
+      .set("Cookie", csrfReg.cookie)
+      .set("x-csrf-token", csrfReg.token)
+      .send({
+        name: "Backfill User",
+        email: "backfill-test@example.com",
+        password: "Password123",
+        confirmPassword: "Password123",
+      });
+    expect(signupRes.status).toBe(201);
+    const userCookie = signupRes.headers["set-cookie"]![0]!;
+
+    const csrfAdd = await getCsrfTokenAndCookie(app);
+    const addCardRes = await request(app)
+      .post("/api/v1/wallet/cards")
+      .set("Cookie", `${userCookie}; ${csrfAdd.cookie}`)
+      .set("x-csrf-token", csrfAdd.token)
+      .send({
+        cardId: harborCardId,
+        openedDate: "2026-01-01",
+      });
+    expect(addCardRes.status).toBe(201);
+    const walletCardId = addCardRes.body.walletCard.id;
+
+    // Simulate an existing wallet card added BEFORE the bonus offer feature:
+    // Delete the WalletCardBonusOffer copy
+    await prisma.walletCardBonusOffer.deleteMany({
+      where: { walletCardId },
+    });
+
+    const beforeCheck = await prisma.walletCardBonusOffer.findUnique({
+      where: { walletCardId },
+    });
+    expect(beforeCheck).toBeNull();
+
+    // Call backfill function
+    const backfilledCount = await bonusRepo.backfillWalletCardBonusOffers();
+    expect(backfilledCount).toBe(1);
+
+    // Verify copy was created matching catalog card offer
+    const afterCheck = await prisma.walletCardBonusOffer.findUnique({
+      where: { walletCardId },
+    });
+    expect(afterCheck).not.toBeNull();
+    expect(afterCheck?.spendRequirementCents).toBe(300000);
+    expect(afterCheck?.windowMonths).toBe(3);
+    expect(afterCheck?.bonusPoints).toBe(60000);
+
+    // Verify idempotency: safe to run more than once
+    const secondRunCount = await bonusRepo.backfillWalletCardBonusOffers();
+    expect(secondRunCount).toBe(0);
+
+    const afterSecondCheck = await prisma.walletCardBonusOffer.findUnique({
+      where: { walletCardId },
+    });
+    expect(afterSecondCheck?.id).toBe(afterCheck?.id);
   });
 });

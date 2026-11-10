@@ -13,6 +13,10 @@ export class BonusRepository {
     this.prisma = prisma;
   }
 
+  async backfillWalletCardBonusOffers(): Promise<number> {
+    return 0;
+  }
+
   async getUserBonusOffers(
     userId: string,
     now: Date = new Date(),
