@@ -85,4 +85,14 @@ describe("Prisma Schema Definition (Issue #9)", () => {
     expect(schema).toContain("@@unique([userId, type])");
     expect(schema).toContain('@@map("notification_preferences")');
   });
+
+  it("Issue #24: schema defines ProgramBalance with unique [userId, programId] and @db.Date expiryDate", () => {
+    expect(schema).toMatch(/model\s+ProgramBalance\s+{/);
+    expect(schema).toMatch(/pointsBalance\s+Int\s+@map\("points_balance"\)/);
+    expect(schema).toMatch(
+      /expiryDate\s+DateTime\s+@db\.Date\s+@map\("expiry_date"\)/,
+    );
+    expect(schema).toContain("@@unique([userId, programId])");
+    expect(schema).toContain('@@map("program_balances")');
+  });
 });
