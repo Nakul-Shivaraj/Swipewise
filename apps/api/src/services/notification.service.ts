@@ -15,8 +15,16 @@ import {
   NotificationRepository,
   notificationRepo as defaultNotificationRepo,
 } from "../repositories/notification.repository.js";
+import { walletRepo as defaultWalletRepo } from "../repositories/wallet.repository.js";
+import { createPaymentDueReminderGenerator } from "../domain/payment-reminders.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
+defaultReminderRegistry.register(
+  "PAYMENT_DUE",
+  createPaymentDueReminderGenerator((userId) =>
+    defaultWalletRepo.findPaymentReminderCardsByUserId(userId),
+  ),
+);
 
 export class NotificationService {
   private repo: NotificationRepository;

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import {
   addWalletCardRequestSchema,
+  markCyclePaidRequestSchema,
+  updatePaymentSettingsRequestSchema,
   updateWalletCardRequestSchema,
 } from "@swipewise/shared";
 import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
@@ -204,6 +206,132 @@ export async function deleteWalletCardHandler(
     }
 
     res.status(200).json({ success: true, message: "Card removed." });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateWalletCardPaymentSettingsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      res.status(401).json({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
+        },
+      });
+      return;
+    }
+
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!id || typeof id !== "string") {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Card ID is required.",
+        },
+      });
+      return;
+    }
+
+    const parseResult = updatePaymentSettingsRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            parseResult.error.issues[0]?.message ||
+            "Invalid payment settings data.",
+        },
+      });
+      return;
+    }
+
+    const service = getWalletService(req);
+    const result = await service.updatePaymentSettings(
+      authReq.user.id,
+      id,
+      parseResult.data,
+    );
+
+    if (result.error) {
+      res.status(404).json({ error: result.error });
+      return;
+    }
+
+    res.status(200).json({
+      walletCard: result.walletCard,
+      paymentSettings: result.paymentSettings,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function markWalletCardCyclePaidHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user) {
+      res.status(401).json({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
+        },
+      });
+      return;
+    }
+
+    const idParam = req.params.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+    if (!id || typeof id !== "string") {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Card ID is required.",
+        },
+      });
+      return;
+    }
+
+    const parseResult = markCyclePaidRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            parseResult.error.issues[0]?.message || "Invalid paid cycle data.",
+        },
+      });
+      return;
+    }
+
+    const nowProvider =
+      (req.app.get("nowProvider") as (() => Date) | undefined) ||
+      (() => new Date());
+    const service = getWalletService(req);
+    const result = await service.markCyclePaid(
+      authReq.user.id,
+      id,
+      parseResult.data,
+      nowProvider(),
+    );
+
+    if (result.error) {
+      res.status(404).json({ error: result.error });
+      return;
+    }
+
+    res.status(200).json({ paidCycle: result.paidCycle });
   } catch (err) {
     next(err);
   }

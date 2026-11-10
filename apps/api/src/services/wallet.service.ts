@@ -8,6 +8,8 @@ import {
 } from "../repositories/wallet.repository.js";
 import {
   AddWalletCardRequest,
+  MarkCyclePaidRequest,
+  UpdatePaymentSettingsRequest,
   UpdateWalletCardRequest,
 } from "@swipewise/shared";
 
@@ -78,6 +80,60 @@ export class WalletService {
     }
 
     return { walletCard: updated };
+  }
+
+  async updatePaymentSettings(
+    userId: string,
+    walletCardId: string,
+    input: UpdatePaymentSettingsRequest,
+  ) {
+    const updated = await this.walletRepo.upsertPaymentSettings(
+      walletCardId,
+      userId,
+      {
+        dueDay: input.dueDay,
+        isAutopay: input.isAutopay,
+      },
+    );
+
+    if (!updated) {
+      return {
+        error: {
+          code: "NOT_FOUND",
+          message: "Wallet card not found.",
+        },
+      };
+    }
+
+    return {
+      walletCard: updated,
+      paymentSettings: updated.paymentSettings,
+    };
+  }
+
+  async markCyclePaid(
+    userId: string,
+    walletCardId: string,
+    input: MarkCyclePaidRequest,
+    now: Date = new Date(),
+  ) {
+    const paidCycle = await this.walletRepo.markCyclePaid(
+      walletCardId,
+      userId,
+      input.cycleYearMonth,
+      now,
+    );
+
+    if (!paidCycle) {
+      return {
+        error: {
+          code: "NOT_FOUND",
+          message: "Wallet card not found.",
+        },
+      };
+    }
+
+    return { paidCycle };
   }
 
   async removeWalletCard(userId: string, id: string) {
