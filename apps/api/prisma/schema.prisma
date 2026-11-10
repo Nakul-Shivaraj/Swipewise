@@ -31,17 +31,19 @@ model User {
   walletCards             WalletCard[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  programBalances         ProgramBalance[]
 
   @@map("users")
 }
 
 model RewardsProgram {
-  id                String   @id @default(uuid())
-  name              String   @unique
-  centsPer100Points Int      @default(100) @map("cents_per_100_points")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                String           @id @default(uuid())
+  name              String           @unique
+  centsPer100Points Int              @default(100) @map("cents_per_100_points")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
   cards             Card[]
+  programBalances   ProgramBalance[]
 
   @@map("rewards_programs")
 }
@@ -153,4 +155,19 @@ model NotificationPreference {
 
   @@unique([userId, type])
   @@map("notification_preferences")
+}
+
+model ProgramBalance {
+  id            String         @id @default(uuid())
+  userId        String         @map("user_id")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  programId     String         @map("program_id")
+  program       RewardsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  pointsBalance Int            @map("points_balance")
+  expiryDate    DateTime       @db.Date @map("expiry_date")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, programId])
+  @@map("program_balances")
 }

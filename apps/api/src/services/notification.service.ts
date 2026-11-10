@@ -15,8 +15,16 @@ import {
   NotificationRepository,
   notificationRepo as defaultNotificationRepo,
 } from "../repositories/notification.repository.js";
+import { pointsBalanceRepo as defaultPointsBalanceRepo } from "../repositories/points-balance.repository.js";
+import { createPointsExpiryReminderGenerator } from "../domain/points-expiry.js";
 
 export const defaultReminderRegistry = createReminderGeneratorRegistry();
+defaultReminderRegistry.register(
+  "POINTS_EXPIRY",
+  createPointsExpiryReminderGenerator((userId) =>
+    defaultPointsBalanceRepo.findReminderBalancesByUserId(userId),
+  ),
+);
 
 export class NotificationService {
   private repo: NotificationRepository;

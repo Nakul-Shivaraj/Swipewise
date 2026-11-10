@@ -309,6 +309,12 @@ export function HomePage() {
             >
               Wallet
             </Link>
+            <Link
+              to="/points"
+              className="py-5 text-[15px] font-medium text-ink-muted hover:text-ink transition-colors"
+            >
+              Points
+            </Link>
             <span className="py-5 text-[15px] font-medium text-ink-muted/70 cursor-default">
               Tracker
             </span>

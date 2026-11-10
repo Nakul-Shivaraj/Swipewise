@@ -1,6 +1,7 @@
 export * from "./schemas/auth.js";
 export * from "./schemas/catalog.js";
 export * from "./schemas/notifications.js";
+export * from "./schemas/points.js";
 export * from "./schemas/recommendations.js";
 export * from "./schemas/stores.js";
 export * from "./schemas/wallet.js";
