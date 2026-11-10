@@ -254,12 +254,27 @@ export class WalletRepository {
     },
     now: Date = new Date(),
   ): Promise<WalletCardWithDetails> {
+    const catalogOffer = await this.prisma.bonusOffer.findUnique({
+      where: { cardId: data.cardId },
+    });
+
     const created = await this.prisma.walletCard.create({
       data: {
         userId: data.userId,
         cardId: data.cardId,
         nickname: data.nickname ?? null,
         openedDate: data.openedDate ?? null,
+        ...(catalogOffer
+          ? {
+              bonusOffer: {
+                create: {
+                  spendRequirementCents: catalogOffer.spendRequirementCents,
+                  windowMonths: catalogOffer.windowMonths,
+                  bonusPoints: catalogOffer.bonusPoints,
+                },
+              },
+            }
+          : {}),
       },
       include: WALLET_CARD_INCLUDE,
     });

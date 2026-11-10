@@ -1,4 +1,5 @@
 export * from "./schemas/auth.js";
+export * from "./schemas/bonus.js";
 export * from "./schemas/catalog.js";
 export * from "./schemas/notifications.js";
 export * from "./schemas/perks.js";

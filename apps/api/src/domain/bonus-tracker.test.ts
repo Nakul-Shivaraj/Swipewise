@@ -128,4 +128,33 @@ describe("calculateBonusProgress (US-07)", () => {
     expect(result.deadline).toBeNull();
     expect(result.daysLeft).toBeNull();
   });
+
+  it("handles missing open date when spend already exceeds requirement", () => {
+    const result = calculateBonusProgress({
+      now: new Date("2026-02-15T12:00:00Z"),
+      timeZone: "invalid-zone",
+      openedDate: null,
+      windowMonths: 3,
+      requiredSpendCents: 100000,
+      spendEntries: [{ amountCents: 150000, date: "2026-02-01" }],
+    });
+
+    expect(result.requiresOpenDate).toBe(true);
+    expect(result.status).toBe("Earned");
+  });
+
+  it("accepts JS Date objects for openedDate and entry date", () => {
+    const result = calculateBonusProgress({
+      now: new Date("2026-02-15T12:00:00Z"),
+      openedDate: new Date("2026-01-01T08:00:00Z"),
+      windowMonths: 3,
+      requiredSpendCents: 200000,
+      spendEntries: [
+        { amountCents: 200000, date: new Date("2026-01-15T08:00:00Z") },
+      ],
+    });
+
+    expect(result.deadline).toBe("2026-04-01");
+    expect(result.status).toBe("Earned");
+  });
 });
