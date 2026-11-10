@@ -22,31 +22,9 @@ describe("Points Balances & Expiry Alerts Integration (US-09 / Issue #24)", () =
     nowProvider: () => currentNow,
   });
 
-  beforeEach(async () => {
-    currentNow = new Date("2026-12-01T18:00:00.000Z");
-    await prisma.notification.deleteMany();
-    await prisma.notificationPreference.deleteMany();
-    await prisma.programBalance.deleteMany();
-    await prisma.walletCard.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.rateLimit.deleteMany();
-
-    registry.register(
-      "POINTS_EXPIRY",
-      createPointsExpiryReminderGenerator((userId) =>
-        pointsRepo.findReminderBalancesByUserId(userId),
-      ),
-    );
-  });
-
-  afterAll(async () => {
-    await prisma.notification.deleteMany();
-    await prisma.notificationPreference.deleteMany();
-    await prisma.programBalance.deleteMany();
-    await prisma.walletCard.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.rateLimit.deleteMany();
-  });
+  let harborProgramId = "";
+  let userA = { userId: "", cookies: "", csrfToken: "" };
+  let userB = { userId: "", cookies: "", csrfToken: "" };
 
   async function registerUser(email: string, name: string) {
     const { token: csrfToken, cookie: csrfCookie } =
@@ -69,44 +47,84 @@ describe("Points Balances & Expiry Alerts Integration (US-09 / Issue #24)", () =
     };
   }
 
-  it("AC1, AC2, AC3: saves balance for wallet program, computes dollar value, enforces user isolation (404), and generates 30d/7d expiry reminders", async () => {
-    const userA = await registerUser("usera-pts@example.com", "User A");
-    const userB = await registerUser("userb-pts@example.com", "User B");
+  beforeEach(async () => {
+    currentNow = new Date("2026-12-01T18:00:00.000Z");
+    await prisma.notification.deleteMany();
+    await prisma.notificationPreference.deleteMany();
+    await prisma.programBalance.deleteMany();
+    await prisma.walletCard.deleteMany();
+    await prisma.card.deleteMany();
+    await prisma.rewardsProgram.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.rateLimit.deleteMany();
 
-    const catalogRes = await request(app)
-      .get("/api/v1/catalog/cards")
-      .set("Cookie", userA.cookies);
-    expect(catalogRes.status).toBe(200);
-    const harborCard = catalogRes.body.cards.find((c: { name: string }) =>
-      c.name.includes("Harbor"),
+    const program = await prisma.rewardsProgram.create({
+      data: {
+        name: "Harbor Points",
+        centsPer100Points: 125,
+      },
+    });
+    harborProgramId = program.id;
+
+    const card = await prisma.card.create({
+      data: {
+        name: "Harbor Travel Plus",
+        issuer: "Demo Bank",
+        artColor: "#2F74D0",
+        isDemo: true,
+        programId: program.id,
+        annualFeeCents: 9500,
+        baseRateX100: 100,
+      },
+    });
+
+    userA = await registerUser("usera-pts@example.com", "User A");
+    userB = await registerUser("userb-pts@example.com", "User B");
+
+    await prisma.walletCard.create({
+      data: {
+        userId: userA.userId,
+        cardId: card.id,
+      },
+    });
+
+    registry.register(
+      "POINTS_EXPIRY",
+      createPointsExpiryReminderGenerator((userId) =>
+        pointsRepo.findReminderBalancesByUserId(userId),
+      ),
     );
-    expect(harborCard).toBeDefined();
+  });
 
-    // Add Harbor card to User A's wallet
-    const addCardRes = await request(app)
-      .post("/api/v1/wallet/cards")
-      .set("Cookie", userA.cookies)
-      .set("x-csrf-token", userA.csrfToken)
-      .send({ cardId: harborCard.id });
-    expect(addCardRes.status).toBe(201);
+  afterAll(async () => {
+    await prisma.notification.deleteMany();
+    await prisma.notificationPreference.deleteMany();
+    await prisma.programBalance.deleteMany();
+    await prisma.walletCard.deleteMany();
+    await prisma.card.deleteMany();
+    await prisma.rewardsProgram.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.rateLimit.deleteMany();
+  });
 
-    // GET /api/v1/points-balances for User A returns Harbor's rewards program
+  it("AC1, AC2, AC3: saves balance for wallet program, computes dollar value, enforces user isolation (404), and generates 30d/7d expiry reminders", async () => {
+    // GET /api/v1/points-balances for User A returns Harbor Points program
     const getProgramsRes = await request(app)
       .get("/api/v1/points-balances")
       .set("Cookie", userA.cookies);
     expect(getProgramsRes.status).toBe(200);
     expect(getProgramsRes.body.programs).toHaveLength(1);
-    const programId = getProgramsRes.body.programs[0].programId as string;
+    expect(getProgramsRes.body.programs[0].programId).toBe(harborProgramId);
 
     // User A sets 10,000 points expiring 2026-12-31
     const putRes = await request(app)
-      .put(`/api/v1/points-balances/${programId}`)
+      .put(`/api/v1/points-balances/${harborProgramId}`)
       .set("Cookie", userA.cookies)
       .set("x-csrf-token", userA.csrfToken)
       .send({ pointsBalance: 10000, expiryDate: "2026-12-31" });
     expect(putRes.status).toBe(200);
     expect(putRes.body.programBalance).toMatchObject({
-      programId,
+      programId: harborProgramId,
       pointsBalance: 10000,
       valueCents: 12500,
       expiryDate: "2026-12-31",
@@ -114,7 +132,7 @@ describe("Points Balances & Expiry Alerts Integration (US-09 / Issue #24)", () =
 
     // User B cannot update User A's program balance (program not in User B's wallet -> 404)
     const crossPut = await request(app)
-      .put(`/api/v1/points-balances/${programId}`)
+      .put(`/api/v1/points-balances/${harborProgramId}`)
       .set("Cookie", userB.cookies)
       .set("x-csrf-token", userB.csrfToken)
       .send({ pointsBalance: 500, expiryDate: "2026-12-31" });
