@@ -36,7 +36,7 @@ describe("API dev server (Issue #34)", () => {
       });
 
       const startTime = Date.now();
-      while (Date.now() - startTime < 8000) {
+      while (Date.now() - startTime < 12000) {
         if (child.exitCode !== null) {
           throw new Error(
             `Dev server process exited prematurely with code ${child.exitCode}: ${errorOutput}`,

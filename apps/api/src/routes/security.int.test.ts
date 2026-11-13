@@ -14,6 +14,7 @@ import type { Express } from "express";
 import {
   addWalletCardRequestSchema,
   createActivateQuarterRequestSchema,
+  createSpendEntryRequestSchema,
   loginRequestSchema,
   markCyclePaidRequestSchema,
   notificationItemSchema,
@@ -21,6 +22,7 @@ import {
   signupRequestSchema,
   storeSearchQuerySchema,
   updateNotificationPreferencesRequestSchema,
+  updateSpendEntryRequestSchema,
   updateWalletCardRequestSchema,
   upsertPointsBalanceRequestSchema,
 } from "@swipewise/shared";
@@ -329,7 +331,7 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     ownershipCheck: "cross-user-id-404",
   },
 
-  // Bonus tracker routes (Issue #22)
+  // Bonus offers & spend entries (#22)
   {
     method: "GET",
     path: "/api/v1/bonus-offers",
@@ -346,14 +348,14 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
   },
   {
     method: "GET",
-    path: "/api/v1/wallet/cards/:id/bonus",
+    path: "/api/v1/wallet/cards/:id/bonus-offer",
     auth: "requireAuth",
     csrf: false,
     ownershipCheck: "cross-user-id-404",
   },
   {
     method: "GET",
-    path: "/api/v1/wallet/cards/:id/bonus-offer",
+    path: "/api/v1/wallet/cards/:id/bonus",
     auth: "requireAuth",
     csrf: false,
     ownershipCheck: "cross-user-id-404",
@@ -421,7 +423,6 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     csrf: true,
     ownershipCheck: "cross-user-id-404",
   },
-
   // Admin routes (Issue #25)
   {
     method: "GET",
@@ -621,6 +622,42 @@ export const SHARED_STRING_INPUT_FIELDS_INVENTORY = [
     endpoint: "GET /api/v1/notifications",
     coveredByCardNumberEndpointTest: true,
   },
+  {
+    schema: "createSpendEntryRequestSchema",
+    field: "note",
+    classification: "free-text (noCardNumberRefinement)",
+    endpoint:
+      "POST /api/v1/wallet/cards/:id/spend-entries & POST /api/v1/wallet/cards/:id/spending-entries",
+    coveredByCardNumberEndpointTest: true,
+  },
+  {
+    schema: "createSpendEntryRequestSchema",
+    field: "date",
+    classification: "date format YYYY-MM-DD",
+    endpoint:
+      "POST /api/v1/wallet/cards/:id/spend-entries & POST /api/v1/wallet/cards/:id/spending-entries",
+    coveredByCardNumberEndpointTest: true,
+    reason:
+      "Strict 10-char YYYY-MM-DD regex rejects 13-19 digit card numbers with 400.",
+  },
+  {
+    schema: "updateSpendEntryRequestSchema",
+    field: "note",
+    classification: "free-text (noCardNumberRefinement)",
+    endpoint:
+      "PATCH /api/v1/wallet/cards/:walletCardId/spend-entries/:id, PATCH /api/v1/wallet/cards/:walletCardId/spending-entries/:id, PATCH|PUT /api/v1/spend-entries/:id",
+    coveredByCardNumberEndpointTest: true,
+  },
+  {
+    schema: "updateSpendEntryRequestSchema",
+    field: "date",
+    classification: "date format YYYY-MM-DD",
+    endpoint:
+      "PATCH /api/v1/wallet/cards/:walletCardId/spend-entries/:id, PATCH /api/v1/wallet/cards/:walletCardId/spending-entries/:id, PATCH|PUT /api/v1/spend-entries/:id",
+    coveredByCardNumberEndpointTest: true,
+    reason:
+      "Strict 10-char YYYY-MM-DD regex rejects 13-19 digit card numbers with 400.",
+  },
 ] as const;
 
 interface RouterLayer {
@@ -747,7 +784,7 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
 
   it("rejects Luhn-valid card numbers across all free-text and constrained string fields in packages/shared schemas", () => {
     expect(SHARED_STRING_INPUT_FIELDS_INVENTORY.length).toBeGreaterThanOrEqual(
-      16,
+      20,
     );
 
     for (const payload of LUHN_CARD_PAYLOADS) {
@@ -788,6 +825,18 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         createdAt: "2026-11-10T00:00:00.000Z",
       });
       expect(notifRes.success).toBe(false);
+
+      const createSpendNoteRes = createSpendEntryRequestSchema.safeParse({
+        amountCents: 2500,
+        date: "2026-11-01",
+        note: payload.input,
+      });
+      expect(createSpendNoteRes.success).toBe(false);
+
+      const updateSpendNoteRes = updateSpendEntryRequestSchema.safeParse({
+        note: payload.input,
+      });
+      expect(updateSpendNoteRes.success).toBe(false);
 
       // 2. Constrained string schemas (UUID, dates, cycles, quarters, enums, bounded numeric strings, email)
       expect(
@@ -849,6 +898,19 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
           enabled: false,
         }).success,
       ).toBe(false);
+
+      expect(
+        createSpendEntryRequestSchema.safeParse({
+          amountCents: 2500,
+          date: payload.input,
+        }).success,
+      ).toBe(false);
+
+      expect(
+        updateSpendEntryRequestSchema.safeParse({
+          date: payload.input,
+        }).success,
+      ).toBe(false);
     }
   });
 
@@ -856,6 +918,8 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
     const rateHits = new Map<string, { hits: number; resetTime: Date }>();
     const createdUsers: unknown[] = [];
     const createdCards: unknown[] = [];
+    const createdSpendEntries: unknown[] = [];
+    const updatedSpendEntries: unknown[] = [];
 
     const fakePrisma = {
       $executeRawUnsafe: async () => 0,
@@ -878,6 +942,17 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         },
         findFirst: async () => null,
       },
+      spendEntry: {
+        create: async (args: unknown) => {
+          createdSpendEntries.push(args);
+          return args;
+        },
+        update: async (args: unknown) => {
+          updatedSpendEntries.push(args);
+          return args;
+        },
+        findUnique: async () => null,
+      },
     } as unknown as NonNullable<Parameters<typeof createApp>[0]>["prisma"];
 
     const localApp = createApp({
@@ -894,7 +969,7 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
     );
     const csrf = await getCsrfTokenAndCookie(localApp);
 
-    // 1. Logged out -> 401 on all 30 protected routes
+    // 1. Logged out -> 401 on all 43 protected routes
     for (const route of SECURITY_ROUTE_MATRIX.filter(
       (r) => r.auth === "requireAuth",
     )) {
@@ -922,7 +997,7 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       expect(res.body.error?.code).toBe("UNAUTHORIZED");
     }
 
-    // 2. CSRF -> 403 on all 21 state-changing routes
+    // 2. CSRF -> 403 on all 30 state-changing routes
     for (const route of SECURITY_ROUTE_MATRIX.filter((r) => r.csrf)) {
       rateHits.clear();
       const url = route.path
@@ -1030,6 +1105,52 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
             .set("Cookie", cookiesWithCsrf)
             .set("x-csrf-token", csrf.token)
             .send({ type: payload.input, enabled: false }),
+          request(localApp)
+            .post(`/api/v1/wallet/cards/${sampleUuid}/spend-entries`)
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({
+              amountCents: 2500,
+              date: "2026-11-01",
+              note: payload.input,
+            }),
+          request(localApp)
+            .post(`/api/v1/wallet/cards/${sampleUuid}/spending-entries`)
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({
+              amountCents: 2500,
+              date: "2026-11-01",
+              note: payload.input,
+            }),
+          request(localApp)
+            .patch(
+              `/api/v1/wallet/cards/${sampleUuid}/spend-entries/${sampleUuid}`,
+            )
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({ note: payload.input }),
+          request(localApp)
+            .patch(
+              `/api/v1/wallet/cards/${sampleUuid}/spending-entries/${sampleUuid}`,
+            )
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({ note: payload.input }),
+          request(localApp)
+            .patch(`/api/v1/spend-entries/${sampleUuid}`)
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({ note: payload.input }),
+          request(localApp)
+            .put(`/api/v1/spend-entries/${sampleUuid}`)
+            .set("Cookie", cookiesWithCsrf)
+            .set("x-csrf-token", csrf.token)
+            .send({
+              amountCents: 2500,
+              date: "2026-11-01",
+              note: payload.input,
+            }),
         ];
 
         for (const reqPromise of requests) {
@@ -1049,6 +1170,8 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       }
       expect(createdUsers).toHaveLength(0);
       expect(createdCards).toHaveLength(0);
+      expect(createdSpendEntries).toHaveLength(0);
+      expect(updatedSpendEntries).toHaveLength(0);
     } finally {
       for (const s of spies) s.mockRestore();
     }
@@ -1070,6 +1193,12 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
     const BAL_B_ID = "ffffffff-2222-4222-8222-222222222222";
     const PU_A_ID = "99999999-1111-4111-8111-111111111111";
     const PU_B_ID = "99999999-2222-4222-8222-222222222222";
+    const BONUS_OFFER_HARBOR_ID = "77777777-1111-4111-8111-111111111111";
+    const BONUS_OFFER_MINT_ID = "77777777-2222-4222-8222-222222222222";
+    const WC_BONUS_A_ID = "88888888-1111-4111-8111-111111111111";
+    const WC_BONUS_B_ID = "88888888-2222-4222-8222-222222222222";
+    const SPEND_A_ID = "66666666-1111-4111-8111-111111111111";
+    const SPEND_B_ID = "66666666-2222-4222-8222-222222222222";
 
     const fixedDate = new Date("2026-11-10T18:00:00.000Z");
 
@@ -1094,6 +1223,37 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       },
     ];
 
+    const spendEntries = [
+      {
+        id: SPEND_A_ID,
+        walletCardId: WC_A_HARBOR_ID,
+        walletCardBonusOfferId: WC_BONUS_A_ID,
+        amountCents: 50000,
+        date: new Date("2025-02-01T00:00:00.000Z"),
+        note: "User A initial spend",
+        createdAt: fixedDate,
+        updatedAt: fixedDate,
+        walletCard: {
+          id: WC_A_HARBOR_ID,
+          userId: USER_A_ID,
+        },
+      },
+      {
+        id: SPEND_B_ID,
+        walletCardId: WC_B_MINT_ID,
+        walletCardBonusOfferId: WC_BONUS_B_ID,
+        amountCents: 25000,
+        date: new Date("2025-02-15T00:00:00.000Z"),
+        note: "User B initial spend",
+        createdAt: fixedDate,
+        updatedAt: fixedDate,
+        walletCard: {
+          id: WC_B_MINT_ID,
+          userId: USER_B_ID,
+        },
+      },
+    ];
+
     const walletCards = [
       {
         id: WC_A_HARBOR_ID,
@@ -1107,6 +1267,16 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         paymentSetting: { dueDay: 15, isAutopay: false },
         paidCycles: [{ cycleYearMonth: "2026-10" }],
         quarterActivations: [],
+        bonusOffer: {
+          id: WC_BONUS_A_ID,
+          walletCardId: WC_A_HARBOR_ID,
+          spendRequirementCents: 400000,
+          windowMonths: 3,
+          bonusPoints: 60000,
+          createdAt: fixedDate,
+          updatedAt: fixedDate,
+        },
+        spendEntries: [spendEntries[0]!],
         card: {
           id: "card-harbor",
           name: "Harbor Travel Plus",
@@ -1123,6 +1293,13 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
           },
           rewardRules: [{ category: "DINING", rateX100: 300, capCents: null }],
           rotatingCategories: [],
+          bonusOffer: {
+            id: BONUS_OFFER_HARBOR_ID,
+            cardId: "card-harbor",
+            spendRequirementCents: 400000,
+            windowMonths: 3,
+            bonusPoints: 60000,
+          },
           perks: [
             {
               id: PERK_RIDE_ID,
@@ -1146,6 +1323,8 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         paymentSetting: null,
         paidCycles: [],
         quarterActivations: [{ quarter: "2026-Q4" }],
+        bonusOffer: null,
+        spendEntries: [],
         card: {
           id: "card-orbit",
           name: "Orbit Quarterly",
@@ -1169,6 +1348,7 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
               capCents: 150000,
             },
           ],
+          bonusOffer: null,
           perks: [],
         },
       },
@@ -1184,6 +1364,16 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         paymentSetting: { dueDay: 22, isAutopay: true },
         paidCycles: [{ cycleYearMonth: "2026-09" }],
         quarterActivations: [],
+        bonusOffer: {
+          id: WC_BONUS_B_ID,
+          walletCardId: WC_B_MINT_ID,
+          spendRequirementCents: 100000,
+          windowMonths: 3,
+          bonusPoints: 20000,
+          createdAt: fixedDate,
+          updatedAt: fixedDate,
+        },
+        spendEntries: [spendEntries[1]!],
         card: {
           id: "card-mint",
           name: "Mint Everyday",
@@ -1202,6 +1392,13 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
             { category: "GROCERIES", rateX100: 400, capCents: null },
           ],
           rotatingCategories: [],
+          bonusOffer: {
+            id: BONUS_OFFER_MINT_ID,
+            cardId: "card-mint",
+            spendRequirementCents: 100000,
+            windowMonths: 3,
+            bonusPoints: 20000,
+          },
           perks: [
             {
               id: PERK_STREAM_ID,
@@ -1310,6 +1507,10 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         findUnique: async ({ where }: { where: { id: string } }) =>
           walletCards.find((wc) => wc.id === where.id) ?? null,
       },
+      spendEntry: {
+        findUnique: async ({ where }: { where: { id: string } }) =>
+          spendEntries.find((se) => se.id === where.id) ?? null,
+      },
       perkUsage: {
         findMany: async ({
           where,
@@ -1417,6 +1618,10 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       NOTIF_A_ID,
       BAL_A_ID,
       PU_A_ID,
+      BONUS_OFFER_HARBOR_ID,
+      WC_BONUS_A_ID,
+      SPEND_A_ID,
+      "User A initial spend",
     ];
 
     for (const listPath of [
@@ -1429,6 +1634,8 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       "/api/v1/notifications",
       "/api/v1/notification-preferences",
       "/api/v1/points-balances",
+      "/api/v1/bonus-offers",
+      "/api/v1/bonus-tracker",
     ]) {
       const res = await request(localApp)
         .get(listPath)
@@ -1441,6 +1648,100 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
     }
 
     const crossMutations = [
+      request(localApp)
+        .get(`/api/v1/wallet/cards/${WC_A_HARBOR_ID}/bonus`)
+        .set("Cookie", authCookieB),
+      request(localApp)
+        .get(`/api/v1/wallet/cards/${WC_A_HARBOR_ID}/bonus-offer`)
+        .set("Cookie", authCookieB),
+      request(localApp)
+        .post(`/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spend-entries`)
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({
+          amountCents: 12345,
+          date: "2025-02-20",
+          note: "Injected by B",
+        }),
+      request(localApp)
+        .post(`/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spending-entries`)
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({
+          amountCents: 12345,
+          date: "2025-02-20",
+          note: "Injected by B",
+        }),
+      request(localApp)
+        .patch(
+          `/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spend-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({ amountCents: 99999, note: "Hijacked by B" }),
+      request(localApp)
+        .patch(
+          `/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spending-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({ amountCents: 99999, note: "Hijacked by B" }),
+      request(localApp)
+        .patch(
+          `/api/v1/wallet/cards/${WC_B_MINT_ID}/spend-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({ amountCents: 99999, note: "Hijacked via B card URL" }),
+      request(localApp)
+        .patch(
+          `/api/v1/wallet/cards/${WC_B_MINT_ID}/spending-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({ amountCents: 99999, note: "Hijacked via B card URL" }),
+      request(localApp)
+        .patch(`/api/v1/spend-entries/${SPEND_A_ID}`)
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({ amountCents: 99999, note: "Hijacked top-level PATCH" }),
+      request(localApp)
+        .put(`/api/v1/spend-entries/${SPEND_A_ID}`)
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token)
+        .send({
+          amountCents: 99999,
+          date: "2025-03-01",
+          note: "Hijacked top-level PUT",
+        }),
+      request(localApp)
+        .delete(
+          `/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spend-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token),
+      request(localApp)
+        .delete(
+          `/api/v1/wallet/cards/${WC_A_HARBOR_ID}/spending-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token),
+      request(localApp)
+        .delete(
+          `/api/v1/wallet/cards/${WC_B_MINT_ID}/spend-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token),
+      request(localApp)
+        .delete(
+          `/api/v1/wallet/cards/${WC_B_MINT_ID}/spending-entries/${SPEND_A_ID}`,
+        )
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token),
+      request(localApp)
+        .delete(`/api/v1/spend-entries/${SPEND_A_ID}`)
+        .set("Cookie", cookiesB)
+        .set("x-csrf-token", csrfB.token),
       request(localApp)
         .patch(`/api/v1/wallet/cards/${WC_A_HARBOR_ID}`)
         .set("Cookie", cookiesB)
@@ -1525,6 +1826,9 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
     expect(balances[0]?.pointsBalance).toBe(10000);
     expect(notifications[0]?.dismissedAt).toBeNull();
     expect(preferences[0]?.enabled).toBe(false);
+    expect(spendEntries).toHaveLength(2);
+    expect(spendEntries[0]?.amountCents).toBe(50000);
+    expect(spendEntries[0]?.note).toBe("User A initial spend");
   });
 });
 
@@ -1557,6 +1861,8 @@ describe.skipIf(!hasTestDatabase)(
       paidCycleId: string;
       quarterActivationId: string;
       perkUsageId: string;
+      walletCardBonusOfferId: string;
+      spendEntryId: string;
       programId: string;
       programBalanceId: string;
       notificationId: string;
@@ -1567,6 +1873,7 @@ describe.skipIf(!hasTestDatabase)(
     let orbitCardId = "";
     let ridePerkId = "";
     let loungePerkId = "";
+    let harborBonusOfferId = "";
     let harborProgramId = "";
     let meadowProgramId = "";
 
@@ -1582,6 +1889,9 @@ describe.skipIf(!hasTestDatabase)(
     beforeEach(async () => {
       await prisma.notification.deleteMany();
       await prisma.notificationPreference.deleteMany();
+      await prisma.spendEntry.deleteMany();
+      await prisma.walletCardBonusOffer.deleteMany();
+      await prisma.bonusOffer.deleteMany();
       await prisma.perkUsage.deleteMany();
       await prisma.perk.deleteMany();
       await prisma.programBalance.deleteMany();
@@ -1615,7 +1925,7 @@ describe.skipIf(!hasTestDatabase)(
       });
       meadowProgramId = meadowProgram.id;
 
-      // Seed catalog cards with perks and rotating categories (made-up demo names only)
+      // Seed catalog cards with perks, bonus offers, and rotating categories (made-up demo names only)
       const harborCard = await prisma.card.create({
         data: {
           name: "Harbor Travel Plus",
@@ -1637,11 +1947,19 @@ describe.skipIf(!hasTestDatabase)(
               },
             ],
           },
+          bonusOffer: {
+            create: {
+              spendRequirementCents: 400000,
+              windowMonths: 3,
+              bonusPoints: 60000,
+            },
+          },
         },
-        include: { perks: true },
+        include: { perks: true, bonusOffer: true },
       });
       harborCardId = harborCard.id;
       ridePerkId = harborCard.perks[0]!.id;
+      harborBonusOfferId = harborCard.bonusOffer!.id;
 
       const orbitCard = await prisma.card.create({
         data: {
@@ -1693,8 +2011,15 @@ describe.skipIf(!hasTestDatabase)(
               },
             ],
           },
+          bonusOffer: {
+            create: {
+              spendRequirementCents: 100000,
+              windowMonths: 3,
+              bonusPoints: 20000,
+            },
+          },
         },
-        include: { perks: true },
+        include: { perks: true, bonusOffer: true },
       });
       loungePerkId = meadowCard.perks[0]!.id;
 
@@ -1765,6 +2090,23 @@ describe.skipIf(!hasTestDatabase)(
           usedCents: 400,
         },
       });
+      const wcBoA = await prisma.walletCardBonusOffer.create({
+        data: {
+          walletCardId: wcAHarbor.id,
+          spendRequirementCents: 400000,
+          windowMonths: 3,
+          bonusPoints: 60000,
+        },
+      });
+      const seA = await prisma.spendEntry.create({
+        data: {
+          walletCardId: wcAHarbor.id,
+          walletCardBonusOfferId: wcBoA.id,
+          amountCents: 50000,
+          date: new Date("2025-02-01T00:00:00.000Z"),
+          note: "User A initial spend",
+        },
+      });
       const pbA = await prisma.programBalance.create({
         data: {
           userId: dbUserA.id,
@@ -1804,6 +2146,8 @@ describe.skipIf(!hasTestDatabase)(
         paidCycleId: pcA.id,
         quarterActivationId: qaA.id,
         perkUsageId: puA.id,
+        walletCardBonusOfferId: wcBoA.id,
+        spendEntryId: seA.id,
         programId: harborProgram.id,
         programBalanceId: pbA.id,
         notificationId: notifA.id,
@@ -1867,6 +2211,23 @@ describe.skipIf(!hasTestDatabase)(
           usedCents: 250,
         },
       });
+      const wcBoB = await prisma.walletCardBonusOffer.create({
+        data: {
+          walletCardId: wcBMeadow.id,
+          spendRequirementCents: 100000,
+          windowMonths: 3,
+          bonusPoints: 20000,
+        },
+      });
+      const seB = await prisma.spendEntry.create({
+        data: {
+          walletCardId: wcBMeadow.id,
+          walletCardBonusOfferId: wcBoB.id,
+          amountCents: 25000,
+          date: new Date("2025-02-15T00:00:00.000Z"),
+          note: "User B initial spend",
+        },
+      });
       const pbB = await prisma.programBalance.create({
         data: {
           userId: dbUserB.id,
@@ -1906,6 +2267,8 @@ describe.skipIf(!hasTestDatabase)(
         paidCycleId: pcB.id,
         quarterActivationId: qaB.id,
         perkUsageId: puB.id,
+        walletCardBonusOfferId: wcBoB.id,
+        spendEntryId: seB.id,
         programId: meadowProgram.id,
         programBalanceId: pbB.id,
         notificationId: notifB.id,
@@ -1918,6 +2281,9 @@ describe.skipIf(!hasTestDatabase)(
     afterAll(async () => {
       await prisma.notification.deleteMany();
       await prisma.notificationPreference.deleteMany();
+      await prisma.spendEntry.deleteMany();
+      await prisma.walletCardBonusOffer.deleteMany();
+      await prisma.bonusOffer.deleteMany();
       await prisma.perkUsage.deleteMany();
       await prisma.perk.deleteMany();
       await prisma.programBalance.deleteMany();
@@ -1939,6 +2305,14 @@ describe.skipIf(!hasTestDatabase)(
       templatePath: string,
       target: SeededUserFixture,
     ): string {
+      if (
+        templatePath.includes("/spend-entries/:id") ||
+        templatePath.includes("/spending-entries/:id")
+      ) {
+        return templatePath
+          .replace(":walletCardId", target.walletCardHarborId)
+          .replace(":id", target.spendEntryId);
+      }
       return templatePath
         .replace(":walletCardId", target.walletCardHarborId)
         .replace(":perkId", ridePerkId)
@@ -2008,6 +2382,38 @@ describe.skipIf(!hasTestDatabase)(
       }
     });
 
+    it("Admin routes: non-admin logged-in user gets 403 FORBIDDEN on every admin route", async () => {
+      const adminRoutes = SECURITY_ROUTE_MATRIX.filter(
+        (r) => r.ownershipCheck === "admin-only",
+      );
+      expect(adminRoutes.length).toBe(8);
+
+      for (const route of adminRoutes) {
+        await prisma.rateLimit.deleteMany();
+        const url = materializeRoutePath(route.path, userA);
+        const method = route.method.toLowerCase() as
+          | "get"
+          | "post"
+          | "put"
+          | "patch"
+          | "delete";
+
+        let req = request(app)
+          [method](url)
+          .set("Cookie", userA.cookiesWithCsrf);
+        if (route.csrf) {
+          req = req.set("x-csrf-token", userA.csrfToken).send({});
+        }
+
+        const res = await req;
+        expect(
+          res.status,
+          `Expected 403 for non-admin on ${route.method} ${route.path}, got ${res.status}`,
+        ).toBe(403);
+        expect(res.body.error?.code).toBe("FORBIDDEN");
+      }
+    });
+
     it("Cron: GET /api/v1/cron/reminders returns 401 without secret or with wrong secret", async () => {
       const missingRes = await request(app).get("/api/v1/cron/reminders");
       expect(missingRes.status).toBe(401);
@@ -2030,6 +2436,9 @@ describe.skipIf(!hasTestDatabase)(
         userA.paidCycleId,
         userA.quarterActivationId,
         userA.perkUsageId,
+        userA.walletCardBonusOfferId,
+        userA.spendEntryId,
+        harborBonusOfferId,
         userA.programBalanceId,
         userA.notificationId,
         userA.notificationPreferenceId,
@@ -2046,6 +2455,7 @@ describe.skipIf(!hasTestDatabase)(
         expect(serialized).not.toContain("User A Harbor");
         expect(serialized).not.toContain("User A Orbit");
         expect(serialized).not.toContain("User A payment due soon");
+        expect(serialized).not.toContain("User A initial spend");
       }
 
       // 1. GET /api/v1/auth/me
@@ -2119,6 +2529,34 @@ describe.skipIf(!hasTestDatabase)(
       expect(
         ptsRes.body.programs.map((p: { programId: string }) => p.programId),
       ).toEqual([meadowProgramId]);
+
+      // 8. GET /api/v1/bonus-offers & GET /api/v1/bonus-tracker
+      for (const path of ["/api/v1/bonus-offers", "/api/v1/bonus-tracker"]) {
+        const res = await request(app)
+          .get(path)
+          .set("Cookie", userB.authCookie);
+        expect(res.status).toBe(200);
+        expect(res.body.bonuses).toHaveLength(1);
+        expect(res.body.bonuses[0].walletCardId).toBe(userB.walletCardHarborId);
+        expect(res.body.bonuses[0].bonusOfferId).toBe(
+          userB.walletCardBonusOfferId,
+        );
+        expect(res.body.bonuses[0].spendEntries).toHaveLength(1);
+        expect(res.body.bonuses[0].spendEntries[0].id).toBe(userB.spendEntryId);
+        assertContainsNoUserAIds(`GET ${path}`, res.body);
+      }
+
+      // 9. GET /api/v1/wallet/cards/:id/bonus & GET /api/v1/wallet/cards/:id/bonus-offer with User A's walletCardId -> 404
+      for (const path of [
+        `/api/v1/wallet/cards/${userA.walletCardHarborId}/bonus`,
+        `/api/v1/wallet/cards/${userA.walletCardHarborId}/bonus-offer`,
+      ]) {
+        const res = await request(app)
+          .get(path)
+          .set("Cookie", userB.authCookie);
+        expect(res.status).toBe(404);
+        assertContainsNoUserAIds(`GET ${path}`, res.body);
+      }
     });
 
     it("AC1 (Ownership — Mutations): User B using User A's IDs always gets 404 and leaves User A's data completely unchanged", async () => {
@@ -2131,6 +2569,174 @@ describe.skipIf(!hasTestDatabase)(
         label: string;
         exec: () => Promise<request.Response>;
       }> = [
+        {
+          label: "GET /api/v1/wallet/cards/:id/bonus",
+          exec: () =>
+            request(app)
+              .get(`/api/v1/wallet/cards/${userA.walletCardHarborId}/bonus`)
+              .set("Cookie", userB.authCookie),
+        },
+        {
+          label: "GET /api/v1/wallet/cards/:id/bonus-offer",
+          exec: () =>
+            request(app)
+              .get(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/bonus-offer`,
+              )
+              .set("Cookie", userB.authCookie),
+        },
+        {
+          label: "POST /api/v1/wallet/cards/:id/spend-entries",
+          exec: () =>
+            request(app)
+              .post(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spend-entries`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({
+                amountCents: 12345,
+                date: "2025-02-20",
+                note: "Injected by B",
+              }),
+        },
+        {
+          label: "POST /api/v1/wallet/cards/:id/spending-entries",
+          exec: () =>
+            request(app)
+              .post(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spending-entries`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({
+                amountCents: 12345,
+                date: "2025-02-20",
+                note: "Injected by B",
+              }),
+        },
+        {
+          label:
+            "PATCH /api/v1/wallet/cards/:walletCardId/spend-entries/:id (User A card + User A entry)",
+          exec: () =>
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spend-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({ amountCents: 99999, note: "Hijacked by B" }),
+        },
+        {
+          label:
+            "PATCH /api/v1/wallet/cards/:walletCardId/spending-entries/:id (User A card + User A entry)",
+          exec: () =>
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spending-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({ amountCents: 99999, note: "Hijacked by B" }),
+        },
+        {
+          label:
+            "PATCH /api/v1/wallet/cards/:walletCardId/spend-entries/:id (User B card + User A entry)",
+          exec: () =>
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userB.walletCardHarborId}/spend-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({ amountCents: 99999, note: "Hijacked via B card URL" }),
+        },
+        {
+          label:
+            "PATCH /api/v1/wallet/cards/:walletCardId/spending-entries/:id (User B card + User A entry)",
+          exec: () =>
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userB.walletCardHarborId}/spending-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({ amountCents: 99999, note: "Hijacked via B card URL" }),
+        },
+        {
+          label: "PATCH /api/v1/spend-entries/:id (top-level)",
+          exec: () =>
+            request(app)
+              .patch(`/api/v1/spend-entries/${userA.spendEntryId}`)
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({ amountCents: 99999, note: "Hijacked top-level PATCH" }),
+        },
+        {
+          label: "PUT /api/v1/spend-entries/:id (top-level)",
+          exec: () =>
+            request(app)
+              .put(`/api/v1/spend-entries/${userA.spendEntryId}`)
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken)
+              .send({
+                amountCents: 99999,
+                date: "2025-03-01",
+                note: "Hijacked top-level PUT",
+              }),
+        },
+        {
+          label:
+            "DELETE /api/v1/wallet/cards/:walletCardId/spend-entries/:id (User A card + User A entry)",
+          exec: () =>
+            request(app)
+              .delete(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spend-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken),
+        },
+        {
+          label:
+            "DELETE /api/v1/wallet/cards/:walletCardId/spending-entries/:id (User A card + User A entry)",
+          exec: () =>
+            request(app)
+              .delete(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spending-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken),
+        },
+        {
+          label:
+            "DELETE /api/v1/wallet/cards/:walletCardId/spend-entries/:id (User B card + User A entry)",
+          exec: () =>
+            request(app)
+              .delete(
+                `/api/v1/wallet/cards/${userB.walletCardHarborId}/spend-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken),
+        },
+        {
+          label:
+            "DELETE /api/v1/wallet/cards/:walletCardId/spending-entries/:id (User B card + User A entry)",
+          exec: () =>
+            request(app)
+              .delete(
+                `/api/v1/wallet/cards/${userB.walletCardHarborId}/spending-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken),
+        },
+        {
+          label: "DELETE /api/v1/spend-entries/:id (top-level)",
+          exec: () =>
+            request(app)
+              .delete(`/api/v1/spend-entries/${userA.spendEntryId}`)
+              .set("Cookie", userB.cookiesWithCsrf)
+              .set("x-csrf-token", userB.csrfToken),
+        },
         {
           label: "PATCH /api/v1/wallet/cards/:id",
           exec: () =>
@@ -2302,6 +2908,8 @@ describe.skipIf(!hasTestDatabase)(
           paymentSetting: true,
           paidCycles: true,
           perkUsages: true,
+          bonusOffer: true,
+          spendEntries: true,
         },
       });
       expect(aHarborAfter.nickname).toBe("User A Harbor");
@@ -2312,6 +2920,17 @@ describe.skipIf(!hasTestDatabase)(
       ]);
       expect(aHarborAfter.perkUsages).toHaveLength(1);
       expect(aHarborAfter.perkUsages[0]?.usedCents).toBe(400);
+      expect(aHarborAfter.bonusOffer?.id).toBe(userA.walletCardBonusOfferId);
+      expect(aHarborAfter.bonusOffer?.spendRequirementCents).toBe(400000);
+      expect(aHarborAfter.bonusOffer?.windowMonths).toBe(3);
+      expect(aHarborAfter.bonusOffer?.bonusPoints).toBe(60000);
+      expect(aHarborAfter.spendEntries).toHaveLength(1);
+      expect(aHarborAfter.spendEntries[0]?.id).toBe(userA.spendEntryId);
+      expect(aHarborAfter.spendEntries[0]?.amountCents).toBe(50000);
+      expect(
+        aHarborAfter.spendEntries[0]?.date.toISOString().slice(0, 10),
+      ).toBe("2025-02-01");
+      expect(aHarborAfter.spendEntries[0]?.note).toBe("User A initial spend");
 
       const aOrbitAfter = await prisma.walletCard.findUniqueOrThrow({
         where: { id: userA.walletCardOrbitId },
@@ -2450,6 +3069,71 @@ describe.skipIf(!hasTestDatabase)(
           expect(JSON.stringify(storesQueryRes.body)).not.toContain(
             payload.rawDigits,
           );
+
+          await prisma.rateLimit.deleteMany();
+
+          // 6. Spend entry free-text `note` field across all 6 POST/PATCH/PUT endpoints
+          const spendEntryNoteRequests = [
+            request(app)
+              .post(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spend-entries`,
+              )
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({
+                amountCents: 2500,
+                date: "2025-02-20",
+                note: payload.input,
+              }),
+            request(app)
+              .post(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spending-entries`,
+              )
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({
+                amountCents: 2500,
+                date: "2025-02-20",
+                note: payload.input,
+              }),
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spend-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({ note: payload.input }),
+            request(app)
+              .patch(
+                `/api/v1/wallet/cards/${userA.walletCardHarborId}/spending-entries/${userA.spendEntryId}`,
+              )
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({ note: payload.input }),
+            request(app)
+              .patch(`/api/v1/spend-entries/${userA.spendEntryId}`)
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({ note: payload.input }),
+            request(app)
+              .put(`/api/v1/spend-entries/${userA.spendEntryId}`)
+              .set("Cookie", userA.cookiesWithCsrf)
+              .set("x-csrf-token", userA.csrfToken)
+              .send({
+                amountCents: 2500,
+                date: "2025-02-20",
+                note: payload.input,
+              }),
+          ];
+
+          for (const spendReq of spendEntryNoteRequests) {
+            const spendRes = await spendReq;
+            expect(spendRes.status).toBe(400);
+            expect(JSON.stringify(spendRes.body)).not.toContain(payload.input);
+            expect(JSON.stringify(spendRes.body)).not.toContain(
+              payload.rawDigits,
+            );
+          }
         }
 
         // Assert captured logs never contain any card numbers
@@ -2462,7 +3146,12 @@ describe.skipIf(!hasTestDatabase)(
         // Assert the database never stored any card numbers
         const allUsers = await prisma.user.findMany();
         const allWalletCards = await prisma.walletCard.findMany();
-        const dbSnapshot = JSON.stringify({ allUsers, allWalletCards });
+        const allSpendEntries = await prisma.spendEntry.findMany();
+        const dbSnapshot = JSON.stringify({
+          allUsers,
+          allWalletCards,
+          allSpendEntries,
+        });
         for (const payload of LUHN_CARD_PAYLOADS) {
           expect(dbSnapshot).not.toContain(payload.input);
           expect(dbSnapshot).not.toContain(payload.rawDigits);
@@ -2472,6 +3161,10 @@ describe.skipIf(!hasTestDatabase)(
             where: { email: "card-attempt@example.com" },
           }),
         ).toBeNull();
+        const aEntryAfter = await prisma.spendEntry.findUniqueOrThrow({
+          where: { id: userA.spendEntryId },
+        });
+        expect(aEntryAfter.note).toBe("User A initial spend");
       } finally {
         logSpy.mockRestore();
         infoSpy.mockRestore();
