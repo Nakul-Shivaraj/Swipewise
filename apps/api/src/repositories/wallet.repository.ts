@@ -108,6 +108,7 @@ export class WalletRepository {
         isDemo: boolean;
         annualFeeCents: number;
         baseRateX100: number;
+        isRetired?: boolean;
         program: {
           name: string;
           centsPer100Points: number;
@@ -199,6 +200,7 @@ export class WalletRepository {
         isDemo: wc.card.isDemo,
         annualFeeCents: wc.card.annualFeeCents,
         baseRateX100: wc.card.baseRateX100,
+        isRetired: wc.card.isRetired,
         program: {
           name: wc.card.program.name,
           centsPer100Points: wc.card.program.centsPer100Points,

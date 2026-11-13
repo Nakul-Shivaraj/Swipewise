@@ -103,7 +103,9 @@ describe("AdminPage (US-10 / Issue #25)", () => {
     );
 
     // Cards tab is default
-    expect(await screen.findByText("Admin")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /Admin/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Cards/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Stores/i })).toBeInTheDocument();
     expect(
@@ -182,6 +184,6 @@ describe("AdminPage (US-10 / Issue #25)", () => {
 
     expect(await screen.findByText("CREATE_CARD")).toBeInTheDocument();
     expect(screen.getByText("admin@swipewise.local")).toBeInTheDocument();
-    expect(screen.getByText("CARD")).toBeInTheDocument();
+    expect(screen.getByText(/CARD \(/)).toBeInTheDocument();
   });
 });

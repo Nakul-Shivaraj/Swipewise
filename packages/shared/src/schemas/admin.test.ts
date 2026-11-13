@@ -17,7 +17,7 @@ describe("Admin Schemas (US-10)", () => {
         isDemo: true,
         annualFeeCents: 9500,
         baseRateX100: 100,
-        programId: "11111111-1111-1111-1111-111111111111",
+        programId: "11111111-1111-4111-8111-111111111111",
         rewardRules: [
           { category: "DINING", rateX100: 300, capCents: null },
           { category: "TRAVEL", rateX100: 200, capCents: 50000 },
@@ -40,7 +40,7 @@ describe("Admin Schemas (US-10)", () => {
         artColor: "#1a365d",
         annualFeeCents: 0,
         baseRateX100: 100,
-        programId: "11111111-1111-1111-1111-111111111111",
+        programId: "11111111-1111-4111-8111-111111111111",
         rewardRules: [],
       };
       const result = adminCreateCardSchema.safeParse(invalid);
@@ -59,7 +59,7 @@ describe("Admin Schemas (US-10)", () => {
         artColor: "#1a365d",
         annualFeeCents: 95.5,
         baseRateX100: 1.5,
-        programId: "11111111-1111-1111-1111-111111111111",
+        programId: "11111111-1111-4111-8111-111111111111",
         rewardRules: [{ category: "DINING", rateX100: 2.5 }],
       };
       const result = adminCreateCardSchema.safeParse(invalid);
@@ -114,12 +114,12 @@ describe("Admin Schemas (US-10)", () => {
   describe("adminAuditLogItemSchema", () => {
     it("validates audit log entry with before and after snapshots", () => {
       const valid = {
-        id: "99999999-9999-9999-9999-999999999999",
-        userId: "88888888-8888-8888-8888-888888888888",
+        id: "99999999-9999-4999-8999-999999999999",
+        userId: "88888888-8888-4888-8888-888888888888",
         userEmail: "admin@swipewise.local",
         action: "CREATE_CARD",
         entityType: "CARD",
-        entityId: "77777777-7777-7777-7777-777777777777",
+        entityId: "77777777-7777-4777-8777-777777777777",
         before: null,
         after: { name: "Demo Gold" },
         createdAt: "2026-11-12T18:00:00.000Z",

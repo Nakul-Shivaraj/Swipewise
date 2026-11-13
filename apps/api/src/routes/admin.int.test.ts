@@ -41,9 +41,7 @@ describe("Admin Pages & Audit Log Integration (US-10 / Issue #25)", () => {
 
   beforeEach(async () => {
     // Clean up DB
-    await prisma
-      .$executeRawUnsafe(`DELETE FROM "audit_logs" WHERE 1=1;`)
-      .catch(() => {});
+    await prisma.auditLog.deleteMany();
     await prisma.spendEntry.deleteMany();
     await prisma.walletCardBonusOffer.deleteMany();
     await prisma.bonusOffer.deleteMany();
@@ -86,19 +84,11 @@ describe("Admin Pages & Audit Log Integration (US-10 / Issue #25)", () => {
     adminUserId = signupAdmin.body.user.id;
     adminCookie = signupAdmin.headers["set-cookie"]![0]!;
 
-    // Promote Admin User directly in DB via SQL until schema is migrated
-    await prisma
-      .$executeRawUnsafe(
-        `UPDATE "users" SET "role" = 'ADMIN'::"Role" WHERE "id" = '${adminUserId}';`,
-      )
-      .catch(async () => {
-        // Fallback if enum doesn't exist yet before migration
-        await prisma
-          .$executeRawUnsafe(
-            `UPDATE "users" SET "role" = 'ADMIN' WHERE "id" = '${adminUserId}';`,
-          )
-          .catch(() => {});
-      });
+    // Promote Admin User directly in DB
+    await prisma.user.update({
+      where: { id: adminUserId },
+      data: { role: "ADMIN" },
+    });
 
     // Create Regular user
     const csrfRegular = await getCsrfTokenAndCookie(app);

@@ -7,7 +7,9 @@ import { WalletPage } from "./pages/WalletPage.js";
 import { PointsPage } from "./pages/PointsPage.js";
 import { TrackerPage } from "./pages/TrackerPage.js";
 import { AlertsPage } from "./pages/AlertsPage.js";
+import { AdminPage } from "./pages/AdminPage.js";
 import { AuthGuard } from "./components/AuthGuard.js";
+import { AdminGuard } from "./components/AdminGuard.js";
 
 export function App() {
   return (
@@ -53,6 +55,14 @@ export function App() {
             <AuthGuard>
               <AlertsPage />
             </AuthGuard>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AdminGuard>
+              <AdminPage />
+            </AdminGuard>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

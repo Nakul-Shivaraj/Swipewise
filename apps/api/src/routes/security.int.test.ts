@@ -60,6 +60,7 @@ interface RouteSecuritySpec {
     | "user-scoped-list"
     | "user-scoped-mutation"
     | "shared-catalog-or-store"
+    | "admin-only"
     | "none";
 }
 
@@ -326,6 +327,157 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     auth: "requireAuth",
     csrf: true,
     ownershipCheck: "cross-user-id-404",
+  },
+
+  // Bonus tracker routes (Issue #22)
+  {
+    method: "GET",
+    path: "/api/v1/bonus-offers",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "user-scoped-list",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/bonus-tracker",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "user-scoped-list",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/wallet/cards/:id/bonus",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/wallet/cards/:id/bonus-offer",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/wallet/cards/:id/spend-entries",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/wallet/cards/:id/spending-entries",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/wallet/cards/:walletCardId/spend-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/wallet/cards/:walletCardId/spending-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/spend-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "PUT",
+    path: "/api/v1/spend-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "DELETE",
+    path: "/api/v1/wallet/cards/:walletCardId/spend-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "DELETE",
+    path: "/api/v1/wallet/cards/:walletCardId/spending-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+  {
+    method: "DELETE",
+    path: "/api/v1/spend-entries/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "cross-user-id-404",
+  },
+
+  // Admin routes (Issue #25)
+  {
+    method: "GET",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/cards/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards/:id/retire",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/stores/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/audit-logs",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
   },
 ] as const;
 
@@ -1798,7 +1950,7 @@ describe.skipIf(!hasTestDatabase)(
       const protectedRoutes = SECURITY_ROUTE_MATRIX.filter(
         (r) => r.auth === "requireAuth",
       );
-      expect(protectedRoutes.length).toBe(30);
+      expect(protectedRoutes.length).toBe(51);
 
       const csrf = await getCsrfTokenAndCookie(app);
 
@@ -1831,7 +1983,7 @@ describe.skipIf(!hasTestDatabase)(
 
     it("CSRF: every state-changing /api/v1 endpoint rejects requests without a valid CSRF token with 403 EBADCSRFTOKEN", async () => {
       const csrfRoutes = SECURITY_ROUTE_MATRIX.filter((r) => r.csrf);
-      expect(csrfRoutes.length).toBe(21);
+      expect(csrfRoutes.length).toBe(35);
 
       for (const route of csrfRoutes) {
         await prisma.rateLimit.deleteMany();
