@@ -555,4 +555,58 @@ describe("WalletPage (US-02 / Issue #11)", () => {
       expect(screen.getAllByText(/Activated/i).length).toBeGreaterThan(0);
     });
   });
+
+  it("AC2: displays 'No longer updated' badge when a wallet card is retired", async () => {
+    const retiredWallet = {
+      walletCards: [
+        {
+          id: "wc-retired",
+          userId: "u-1",
+          cardId: "card-retired",
+          nickname: "Old Card",
+          openedDate: "2024-01-10",
+          createdAt: "2026-10-01T00:00:00Z",
+          card: {
+            ...MOCK_CATALOG.cards[0]!,
+            id: "card-retired",
+            name: "Retired Pioneer",
+            isRetired: true,
+          },
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/api/v1/wallet/cards") || url === "/api/v1/wallet") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(retiredWallet),
+          });
+        }
+        if (url.includes("/api/v1/catalog/cards")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(MOCK_CATALOG),
+          });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Retired Pioneer").length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getAllByText("No longer updated").length).toBeGreaterThan(0);
+  });
 });
