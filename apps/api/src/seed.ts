@@ -104,6 +104,36 @@ AND NOT EXISTS (
     }
   }
 
+  // Bonus Offers
+  statements.push("-- Seed Bonus Offers");
+  for (const card of allDemoCards) {
+    if (card.bonusOffer) {
+      statements.push(`
+INSERT INTO bonus_offers (id, card_id, spend_requirement_cents, window_months, bonus_points, created_at, updated_at)
+SELECT gen_random_uuid(), c.id, ${card.bonusOffer.spendRequirementCents}, ${card.bonusOffer.windowMonths}, ${card.bonusOffer.bonusPoints}, NOW(), NOW()
+FROM cards c WHERE c.name = '${escapeSql(card.name)}'
+ON CONFLICT (card_id) DO UPDATE
+SET
+  spend_requirement_cents = EXCLUDED.spend_requirement_cents,
+  window_months = EXCLUDED.window_months,
+  bonus_points = EXCLUDED.bonus_points,
+  updated_at = NOW();
+`);
+    }
+  }
+
+  // Backfill Wallet Card Bonus Offers for existing cards
+  statements.push(
+    "-- Backfill Wallet Card Bonus Offers for existing wallet cards",
+  );
+  statements.push(`
+INSERT INTO wallet_card_bonus_offers (id, wallet_card_id, spend_requirement_cents, window_months, bonus_points, created_at, updated_at)
+SELECT gen_random_uuid(), wc.id, bo.spend_requirement_cents, bo.window_months, bo.bonus_points, NOW(), NOW()
+FROM wallet_cards wc
+JOIN bonus_offers bo ON bo.card_id = wc.card_id
+ON CONFLICT (wallet_card_id) DO NOTHING;
+`);
+
   // Rotating Categories
   statements.push("-- Seed Rotating Categories");
   const [currentQuarter, nextQuarter] = resolveCurrentAndNextQuarters({

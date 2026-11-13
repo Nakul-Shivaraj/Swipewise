@@ -72,6 +72,7 @@ model Card {
   rotatingCategories RotatingCategory[]
   walletCards        WalletCard[]
   perks              Perk[]
+  bonusOffer         BonusOffer?
 
   @@map("cards")
 }
@@ -142,6 +143,8 @@ model WalletCard {
   paidCycles         WalletCardPaidCycle[]
   quarterActivations WalletCardQuarterActivation[]
   perkUsages         PerkUsage[]
+  bonusOffer         WalletCardBonusOffer?
+  spendEntries       SpendEntry[]
 
   @@map("wallet_cards")
 }
@@ -264,4 +267,46 @@ model PerkUsage {
 
   @@unique([walletCardId, perkId, periodKey])
   @@map("perk_usages")
+}
+
+model BonusOffer {
+  id                    String   @id @default(uuid())
+  cardId                String   @unique @map("card_id")
+  card                  Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  spendRequirementCents Int      @map("spend_requirement_cents")
+  windowMonths          Int      @map("window_months")
+  bonusPoints           Int      @map("bonus_points")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("bonus_offers")
+}
+
+model WalletCardBonusOffer {
+  id                    String       @id @default(uuid())
+  walletCardId          String       @unique @map("wallet_card_id")
+  walletCard            WalletCard   @relation(fields: [walletCardId], references: [id], onDelete: Cascade)
+  spendRequirementCents Int          @map("spend_requirement_cents")
+  windowMonths          Int          @map("window_months")
+  bonusPoints           Int          @map("bonus_points")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  spendEntries          SpendEntry[]
+
+  @@map("wallet_card_bonus_offers")
+}
+
+model SpendEntry {
+  id                     String                @id @default(uuid())
+  walletCardId           String                @map("wallet_card_id")
+  walletCard             WalletCard            @relation(fields: [walletCardId], references: [id], onDelete: Cascade)
+  walletCardBonusOfferId String?               @map("wallet_card_bonus_offer_id")
+  bonusOffer             WalletCardBonusOffer? @relation(fields: [walletCardBonusOfferId], references: [id], onDelete: Cascade)
+  amountCents            Int                   @map("amount_cents")
+  date                   DateTime              @db.Date @map("date")
+  note                   String?
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  @@map("spend_entries")
 }

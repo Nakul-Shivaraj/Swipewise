@@ -39,6 +39,13 @@ import {
   getPerksHandler,
   markPerkUsageHandler,
 } from "./controllers/perk.controller.js";
+import {
+  getBonusOffersHandler,
+  getBonusOfferByWalletCardHandler,
+  addSpendEntryHandler,
+  updateSpendEntryHandler,
+  deleteSpendEntryHandler,
+} from "./controllers/bonus.controller.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -49,6 +56,7 @@ import { StoreRepository } from "./repositories/store.repository.js";
 import { NotificationRepository } from "./repositories/notification.repository.js";
 import { PointsBalanceRepository } from "./repositories/points-balance.repository.js";
 import { PerkRepository } from "./repositories/perk.repository.js";
+import { BonusRepository } from "./repositories/bonus.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -77,6 +85,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("notificationRepo", new NotificationRepository(activePrisma));
   app.set("pointsBalanceRepo", new PointsBalanceRepository(activePrisma));
   app.set("perkRepo", new PerkRepository(activePrisma));
+  app.set("bonusRepo", new BonusRepository(activePrisma));
   if (options.cronSecret !== undefined) {
     app.set("cronSecret", options.cronSecret);
   }
@@ -290,6 +299,53 @@ export function createApp(options: AppOptions = {}) {
     requireAuth,
     upsertPointsBalanceHandler,
   );
+
+  // Bonus offers & spend entries routes (Issue #22)
+  app.get("/api/v1/bonus-offers", requireAuth, getBonusOffersHandler);
+  app.get("/api/v1/bonus-tracker", requireAuth, getBonusOffersHandler);
+  app.get(
+    "/api/v1/wallet/cards/:id/bonus-offer",
+    requireAuth,
+    getBonusOfferByWalletCardHandler,
+  );
+  app.get(
+    "/api/v1/wallet/cards/:id/bonus",
+    requireAuth,
+    getBonusOfferByWalletCardHandler,
+  );
+  app.post(
+    "/api/v1/wallet/cards/:id/spend-entries",
+    requireAuth,
+    addSpendEntryHandler,
+  );
+  app.post(
+    "/api/v1/wallet/cards/:id/spending-entries",
+    requireAuth,
+    addSpendEntryHandler,
+  );
+  app.patch(
+    "/api/v1/wallet/cards/:walletCardId/spend-entries/:id",
+    requireAuth,
+    updateSpendEntryHandler,
+  );
+  app.patch(
+    "/api/v1/wallet/cards/:walletCardId/spending-entries/:id",
+    requireAuth,
+    updateSpendEntryHandler,
+  );
+  app.patch("/api/v1/spend-entries/:id", requireAuth, updateSpendEntryHandler);
+  app.put("/api/v1/spend-entries/:id", requireAuth, updateSpendEntryHandler);
+  app.delete(
+    "/api/v1/wallet/cards/:walletCardId/spend-entries/:id",
+    requireAuth,
+    deleteSpendEntryHandler,
+  );
+  app.delete(
+    "/api/v1/wallet/cards/:walletCardId/spending-entries/:id",
+    requireAuth,
+    deleteSpendEntryHandler,
+  );
+  app.delete("/api/v1/spend-entries/:id", requireAuth, deleteSpendEntryHandler);
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

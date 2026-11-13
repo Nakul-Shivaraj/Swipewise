@@ -25,6 +25,12 @@ export interface SeedRotatingCategory {
   capCents?: number;
 }
 
+export interface SeedBonusOffer {
+  spendRequirementCents: number;
+  windowMonths: number;
+  bonusPoints: number;
+}
+
 export interface SeedCard {
   name: string;
   issuer: string;
@@ -35,6 +41,7 @@ export interface SeedCard {
   baseRateX100: number;
   rules: SeedRewardRule[];
   perks?: SeedPerk[];
+  bonusOffer?: SeedBonusOffer;
 }
 
 export interface SeedRotatingCard extends SeedCard {
@@ -104,6 +111,11 @@ export const DEMO_CARDS: SeedCard[] = [
         period: "MONTHLY",
       },
     ],
+    bonusOffer: {
+      spendRequirementCents: 300000, // $3,000 spend
+      windowMonths: 3, // 3 months
+      bonusPoints: 60000, // 60,000 bonus points
+    },
   },
   {
     name: "Basic Flat",

@@ -216,4 +216,10 @@ describe("Demo Seed Data (Issue #9)", () => {
       }
     }
   });
+
+  it("Issue #22: buildSeedSql includes idempotent backfill for existing wallet card bonus offers", () => {
+    const sql = buildSeedSql();
+    expect(sql).toContain("INSERT INTO wallet_card_bonus_offers");
+    expect(sql).toContain("ON CONFLICT (wallet_card_id) DO NOTHING");
+  });
 });

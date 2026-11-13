@@ -40,6 +40,9 @@ describe("Prisma Schema Definition (Issue #9)", () => {
     expect(schema).toContain('@@map("stores")');
     expect(schema).toContain('@@map("store_aliases")');
     expect(schema).toContain('@@map("wallet_cards")');
+    expect(schema).toContain('@@map("bonus_offers")');
+    expect(schema).toContain('@@map("wallet_card_bonus_offers")');
+    expect(schema).toContain('@@map("spend_entries")');
   });
 
   it("AC: money fields end with Cents and rate fields use rateX100 / centsPer100Points", () => {

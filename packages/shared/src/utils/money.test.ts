@@ -20,5 +20,7 @@ describe("money utilities (AGENTS.md §6)", () => {
     expect(parseDollarsToCents("abc")).toBeNull();
     expect(parseDollarsToCents("10.999")).toBeNull();
     expect(parseDollarsToCents("-50")).toBeNull();
+    expect(parseDollarsToCents("-50", { allowNegative: true })).toBe(-5000);
+    expect(parseDollarsToCents("-$50.25", { allowNegative: true })).toBe(-5025);
   });
 });
