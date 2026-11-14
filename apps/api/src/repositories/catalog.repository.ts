@@ -9,6 +9,7 @@ export interface CatalogCardItem {
   isDemo: boolean;
   annualFeeCents: number;
   baseRateX100: number;
+  isRetired?: boolean;
   program: {
     name: string;
     centsPer100Points: number;

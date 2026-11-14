@@ -21,6 +21,7 @@
     "db:migrate": "npm --workspace=@swipewise/api run db:migrate",
     "db:seed": "npm --workspace=@swipewise/api run db:seed",
     "db:demo-wallet": "npm --workspace=@swipewise/api run db:demo-wallet --",
+    "admin:promote": "npm --workspace=@swipewise/api run admin:promote --",
     "postinstall": "npm --workspace=@swipewise/api run postinstall",
     "prepare": "husky"
   },

@@ -27,11 +27,17 @@ enum ReminderType {
   POINTS_EXPIRY
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id                      String                   @id @default(uuid())
   email                   String                   @unique
   passwordHash            String                   @map("password_hash")
   name                    String
+  role                    Role                     @default(USER)
   timeZone                String                   @default("America/Los_Angeles") @map("time_zone")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
@@ -39,6 +45,7 @@ model User {
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
   programBalances         ProgramBalance[]
+  auditLogs               AuditLog[]
 
   @@map("users")
 }
@@ -310,3 +317,20 @@ model SpendEntry {
 
   @@map("spend_entries")
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+

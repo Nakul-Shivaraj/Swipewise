@@ -25,6 +25,7 @@ export const catalogCardSchema = z.object({
   isDemo: z.boolean(),
   annualFeeCents: z.number().int().nonnegative(),
   baseRateX100: z.number().int().positive(),
+  isRetired: z.boolean().optional(),
   program: z.object({
     name: z.string().min(1),
     centsPer100Points: z.number().int().positive(),

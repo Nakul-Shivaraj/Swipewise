@@ -1,18 +1,24 @@
-import { Request, Response, NextFunction } from 'express';
-import argon2 from 'argon2';
-import { SignJWT } from 'jose';
-import { signupRequestSchema, loginRequestSchema } from '@swipewise/shared';
-import { userRepo as defaultUserRepo, UserRepository } from '../repositories/user.repository.js';
-import { getJwtSecret, AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { Request, Response, NextFunction } from "express";
+import argon2 from "argon2";
+import { SignJWT } from "jose";
+import { signupRequestSchema, loginRequestSchema } from "@swipewise/shared";
+import {
+  userRepo as defaultUserRepo,
+  UserRepository,
+} from "../repositories/user.repository.js";
+import {
+  getJwtSecret,
+  AuthenticatedRequest,
+} from "../middleware/auth.middleware.js";
 
 function getRepo(req: Request): UserRepository {
-  return (req.app.get('userRepo') as UserRepository) || defaultUserRepo;
+  return (req.app.get("userRepo") as UserRepository) || defaultUserRepo;
 }
 
 export async function signupHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const parseResult = signupRequestSchema.safeParse(req.body);
@@ -20,8 +26,9 @@ export async function signupHandler(
     if (!parseResult.success) {
       res.status(400).json({
         error: {
-          code: 'VALIDATION_ERROR',
-          message: parseResult.error.issues[0]?.message || 'Invalid request body.',
+          code: "VALIDATION_ERROR",
+          message:
+            parseResult.error.issues[0]?.message || "Invalid request body.",
           details: parseResult.error.issues,
         },
       });
@@ -36,8 +43,8 @@ export async function signupHandler(
     if (existing) {
       res.status(409).json({
         error: {
-          code: 'EMAIL_ALREADY_EXISTS',
-          message: 'An account with this email already exists. Log in instead?',
+          code: "EMAIL_ALREADY_EXISTS",
+          message: "An account with this email already exists. Log in instead?",
         },
       });
       return;
@@ -56,18 +63,18 @@ export async function signupHandler(
 
     // Generate JWT
     const token = await new SignJWT({ sub: user.id, email: user.email })
-      .setProtectedHeader({ alg: 'HS256' })
+      .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime('7d')
+      .setExpirationTime("7d")
       .sign(getJwtSecret());
 
     // Set httpOnly cookie
-    res.cookie('auth_token', token, {
+    res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
+      path: "/",
     });
 
     res.status(201).json({
@@ -75,6 +82,7 @@ export async function signupHandler(
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
@@ -85,7 +93,7 @@ export async function signupHandler(
 export async function loginHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const parseResult = loginRequestSchema.safeParse(req.body);
@@ -93,8 +101,9 @@ export async function loginHandler(
     if (!parseResult.success) {
       res.status(400).json({
         error: {
-          code: 'VALIDATION_ERROR',
-          message: parseResult.error.issues[0]?.message || 'Invalid request body.',
+          code: "VALIDATION_ERROR",
+          message:
+            parseResult.error.issues[0]?.message || "Invalid request body.",
           details: parseResult.error.issues,
         },
       });
@@ -108,8 +117,8 @@ export async function loginHandler(
     if (!user) {
       res.status(401).json({
         error: {
-          code: 'INVALID_CREDENTIALS',
-          message: 'Email or password is incorrect.',
+          code: "INVALID_CREDENTIALS",
+          message: "Email or password is incorrect.",
         },
       });
       return;
@@ -119,8 +128,8 @@ export async function loginHandler(
     if (!isValid) {
       res.status(401).json({
         error: {
-          code: 'INVALID_CREDENTIALS',
-          message: 'Email or password is incorrect.',
+          code: "INVALID_CREDENTIALS",
+          message: "Email or password is incorrect.",
         },
       });
       return;
@@ -128,18 +137,18 @@ export async function loginHandler(
 
     // Generate JWT
     const token = await new SignJWT({ sub: user.id, email: user.email })
-      .setProtectedHeader({ alg: 'HS256' })
+      .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime('7d')
+      .setExpirationTime("7d")
       .sign(getJwtSecret());
 
     // Set httpOnly cookie
-    res.cookie('auth_token', token, {
+    res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
+      path: "/",
     });
 
     res.status(200).json({
@@ -147,6 +156,7 @@ export async function loginHandler(
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {
@@ -156,32 +166,32 @@ export async function loginHandler(
 
 export async function logoutHandler(
   _req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> {
-  res.clearCookie('auth_token', {
+  res.clearCookie("auth_token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
   });
 
   res.status(200).json({
-    message: 'Logged out successfully.',
+    message: "Logged out successfully.",
   });
 }
 
 export async function meHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const authReq = req as AuthenticatedRequest;
     if (!authReq.user) {
       res.status(401).json({
         error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required.',
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
         },
       });
       return;
@@ -193,8 +203,8 @@ export async function meHandler(
     if (!user) {
       res.status(401).json({
         error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required.',
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
         },
       });
       return;
@@ -205,6 +215,7 @@ export async function meHandler(
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {

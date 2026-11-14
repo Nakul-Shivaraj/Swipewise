@@ -489,9 +489,16 @@ export function WalletPage() {
                       {/* Card meta summary */}
                       <div className="mt-3 flex items-center justify-between px-1 text-[13px]">
                         <div>
-                          <p className="font-semibold text-ink">
-                            {wc.nickname || wc.card.name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-ink">
+                              {wc.nickname || wc.card.name}
+                            </p>
+                            {wc.card.isRetired && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ink-muted/15 text-ink-muted text-[11px] font-medium">
+                                No longer updated
+                              </span>
+                            )}
+                          </div>
                           {wc.nickname && (
                             <p className="text-ink-muted text-[11px]">
                               {wc.card.name}
@@ -565,9 +572,16 @@ export function WalletPage() {
                     />
                     <div className="mt-2.5 px-1 flex items-baseline justify-between">
                       <div>
-                        <p className="font-semibold text-[14px] text-ink truncate">
-                          {wc.nickname || wc.card.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-[14px] text-ink truncate">
+                            {wc.nickname || wc.card.name}
+                          </p>
+                          {wc.card.isRetired && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ink-muted/15 text-ink-muted text-[11px] font-medium shrink-0">
+                              No longer updated
+                            </span>
+                          )}
+                        </div>
                         {wc.nickname && (
                           <p className="text-[12px] text-ink-muted truncate">
                             {wc.card.name}
@@ -637,9 +651,16 @@ export function WalletPage() {
                                 variant="thumbnail"
                               />
                               <div>
-                                <p className="font-semibold text-ink">
-                                  {wc.card.name}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-ink">
+                                    {wc.card.name}
+                                  </p>
+                                  {wc.card.isRetired && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ink-muted/15 text-ink-muted text-[11px] font-medium">
+                                      No longer updated
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[12px] text-ink-muted">
                                   {wc.card.issuer}
                                 </p>
