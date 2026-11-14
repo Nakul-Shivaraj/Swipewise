@@ -62,6 +62,7 @@ interface RouteSecuritySpec {
     | "user-scoped-list"
     | "user-scoped-mutation"
     | "shared-catalog-or-store"
+    | "admin-only"
     | "none";
 }
 
@@ -421,6 +422,63 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     auth: "requireAuth",
     csrf: true,
     ownershipCheck: "cross-user-id-404",
+  },
+  // Admin routes (Issue #25)
+  {
+    method: "GET",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/cards/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards/:id/retire",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/stores/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/audit-logs",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
   },
 ] as const;
 
@@ -2266,7 +2324,7 @@ describe.skipIf(!hasTestDatabase)(
       const protectedRoutes = SECURITY_ROUTE_MATRIX.filter(
         (r) => r.auth === "requireAuth",
       );
-      expect(protectedRoutes.length).toBe(43);
+      expect(protectedRoutes.length).toBe(51);
 
       const csrf = await getCsrfTokenAndCookie(app);
 
@@ -2299,7 +2357,7 @@ describe.skipIf(!hasTestDatabase)(
 
     it("CSRF: every state-changing /api/v1 endpoint rejects requests without a valid CSRF token with 403 EBADCSRFTOKEN", async () => {
       const csrfRoutes = SECURITY_ROUTE_MATRIX.filter((r) => r.csrf);
-      expect(csrfRoutes.length).toBe(30);
+      expect(csrfRoutes.length).toBe(35);
 
       for (const route of csrfRoutes) {
         await prisma.rateLimit.deleteMany();
@@ -2321,6 +2379,38 @@ describe.skipIf(!hasTestDatabase)(
           `Expected 403 EBADCSRFTOKEN for ${route.method} ${route.path}, got ${res.status}`,
         ).toBe(403);
         expect(res.body.error?.code).toBe("EBADCSRFTOKEN");
+      }
+    });
+
+    it("Admin routes: non-admin logged-in user gets 403 FORBIDDEN on every admin route", async () => {
+      const adminRoutes = SECURITY_ROUTE_MATRIX.filter(
+        (r) => r.ownershipCheck === "admin-only",
+      );
+      expect(adminRoutes.length).toBe(8);
+
+      for (const route of adminRoutes) {
+        await prisma.rateLimit.deleteMany();
+        const url = materializeRoutePath(route.path, userA);
+        const method = route.method.toLowerCase() as
+          | "get"
+          | "post"
+          | "put"
+          | "patch"
+          | "delete";
+
+        let req = request(app)
+          [method](url)
+          .set("Cookie", userA.cookiesWithCsrf);
+        if (route.csrf) {
+          req = req.set("x-csrf-token", userA.csrfToken).send({});
+        }
+
+        const res = await req;
+        expect(
+          res.status,
+          `Expected 403 for non-admin on ${route.method} ${route.path}, got ${res.status}`,
+        ).toBe(403);
+        expect(res.body.error?.code).toBe("FORBIDDEN");
       }
     });
 

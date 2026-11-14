@@ -46,7 +46,17 @@ import {
   updateSpendEntryHandler,
   deleteSpendEntryHandler,
 } from "./controllers/bonus.controller.js";
-import { requireAuth } from "./middleware/auth.middleware.js";
+import {
+  getAdminCardsHandler,
+  createAdminCardHandler,
+  updateAdminCardHandler,
+  retireAdminCardHandler,
+  getAdminStoresHandler,
+  createAdminStoreHandler,
+  updateAdminStoreHandler,
+  getAdminAuditLogsHandler,
+} from "./controllers/admin.controller.js";
+import { requireAuth, requireAdmin } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
@@ -57,6 +67,7 @@ import { NotificationRepository } from "./repositories/notification.repository.j
 import { PointsBalanceRepository } from "./repositories/points-balance.repository.js";
 import { PerkRepository } from "./repositories/perk.repository.js";
 import { BonusRepository } from "./repositories/bonus.repository.js";
+import { AdminRepository } from "./repositories/admin.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -86,6 +97,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("pointsBalanceRepo", new PointsBalanceRepository(activePrisma));
   app.set("perkRepo", new PerkRepository(activePrisma));
   app.set("bonusRepo", new BonusRepository(activePrisma));
+  app.set("adminRepo", new AdminRepository(activePrisma));
   if (options.cronSecret !== undefined) {
     app.set("cronSecret", options.cronSecret);
   }
@@ -346,6 +358,56 @@ export function createApp(options: AppOptions = {}) {
     deleteSpendEntryHandler,
   );
   app.delete("/api/v1/spend-entries/:id", requireAuth, deleteSpendEntryHandler);
+
+  // Admin routes (Issue #25)
+  app.get(
+    "/api/v1/admin/cards",
+    requireAuth,
+    requireAdmin,
+    getAdminCardsHandler,
+  );
+  app.post(
+    "/api/v1/admin/cards",
+    requireAuth,
+    requireAdmin,
+    createAdminCardHandler,
+  );
+  app.patch(
+    "/api/v1/admin/cards/:id",
+    requireAuth,
+    requireAdmin,
+    updateAdminCardHandler,
+  );
+  app.post(
+    "/api/v1/admin/cards/:id/retire",
+    requireAuth,
+    requireAdmin,
+    retireAdminCardHandler,
+  );
+  app.get(
+    "/api/v1/admin/stores",
+    requireAuth,
+    requireAdmin,
+    getAdminStoresHandler,
+  );
+  app.post(
+    "/api/v1/admin/stores",
+    requireAuth,
+    requireAdmin,
+    createAdminStoreHandler,
+  );
+  app.patch(
+    "/api/v1/admin/stores/:id",
+    requireAuth,
+    requireAdmin,
+    updateAdminStoreHandler,
+  );
+  app.get(
+    "/api/v1/admin/audit-logs",
+    requireAuth,
+    requireAdmin,
+    getAdminAuditLogsHandler,
+  );
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
