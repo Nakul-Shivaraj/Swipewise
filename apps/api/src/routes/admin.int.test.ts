@@ -418,4 +418,39 @@ describe("Admin Pages & Audit Log Integration (US-10 / Issue #25)", () => {
     expect(resStore.status).toBe(400);
     expect(resStore.body.error?.message).toContain("Don't enter card numbers");
   });
+
+  it("rate limits admin routes like /api/v1/admin/cards and returns 429 when general limit is exceeded", async () => {
+    // Clear rate limits recorded during beforeEach setup
+    await prisma.rateLimit.deleteMany();
+
+    // General rate limit set to 2 requests
+    const limitedApp = createApp({
+      prisma,
+      schema: "test",
+      rateLimitMax: 100,
+      generalRateLimitMax: 2,
+    });
+
+    // Request 1: allowed (200)
+    const res1 = await request(limitedApp)
+      .get("/api/v1/admin/cards")
+      .set("Cookie", adminCookie);
+    expect(res1.status).toBe(200);
+
+    // Request 2: allowed (200)
+    const res2 = await request(limitedApp)
+      .get("/api/v1/admin/cards")
+      .set("Cookie", adminCookie);
+    expect(res2.status).toBe(200);
+
+    // Request 3: must be rate limited with 429
+    const res3 = await request(limitedApp)
+      .get("/api/v1/admin/cards")
+      .set("Cookie", adminCookie);
+    expect(res3.status).toBe(429);
+    expect(res3.body.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(res3.body.error?.message).toBe(
+      "Too many requests. Please try again later.",
+    );
+  });
 });

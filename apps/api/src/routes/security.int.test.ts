@@ -667,7 +667,9 @@ interface RouterLayer {
   };
   handle?: {
     stack?: RouterLayer[];
+    basePath?: string;
   };
+  matchers?: Array<(input: string) => boolean | { path?: string }>;
 }
 
 function extractApiV1Routes(app: Express): string[] {
@@ -687,10 +689,10 @@ function extractApiV1Routes(app: Express): string[] {
   const stack = router?.stack ?? [];
   const discovered = new Set<string>();
 
-  function walk(layers: RouterLayer[]) {
+  function walk(layers: RouterLayer[], prefix = "") {
     for (const layer of layers) {
       if (layer.route?.path && layer.route.methods) {
-        const routePath = layer.route.path;
+        const routePath = `${prefix}${layer.route.path}`;
         if (routePath.startsWith("/api/v1")) {
           for (const [method, enabled] of Object.entries(layer.route.methods)) {
             if (enabled) {
@@ -700,7 +702,19 @@ function extractApiV1Routes(app: Express): string[] {
         }
       }
       if (layer.handle?.stack) {
-        walk(layer.handle.stack);
+        let subPrefix = layer.handle.basePath ?? prefix;
+        if (!subPrefix && layer.matchers?.[0]) {
+          const matchResult = layer.matchers[0]("/api/v1/admin");
+          if (
+            matchResult &&
+            typeof matchResult === "object" &&
+            "path" in matchResult &&
+            typeof matchResult.path === "string"
+          ) {
+            subPrefix = matchResult.path;
+          }
+        }
+        walk(layer.handle.stack, subPrefix);
       }
     }
   }

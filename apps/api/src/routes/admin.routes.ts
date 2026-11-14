@@ -13,6 +13,7 @@ import {
 
 export function createAdminRouter(): Router {
   const router = Router();
+  (router as unknown as { basePath: string }).basePath = "/api/v1/admin";
 
   router.use(requireAuth);
   router.use(requireAdmin);

@@ -46,17 +46,8 @@ import {
   updateSpendEntryHandler,
   deleteSpendEntryHandler,
 } from "./controllers/bonus.controller.js";
-import {
-  getAdminCardsHandler,
-  createAdminCardHandler,
-  updateAdminCardHandler,
-  retireAdminCardHandler,
-  getAdminStoresHandler,
-  createAdminStoreHandler,
-  updateAdminStoreHandler,
-  getAdminAuditLogsHandler,
-} from "./controllers/admin.controller.js";
-import { requireAuth, requireAdmin } from "./middleware/auth.middleware.js";
+import { createAdminRouter } from "./routes/admin.routes.js";
+import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { RecommendationRepository } from "./repositories/recommendation.repository.js";
@@ -359,55 +350,8 @@ export function createApp(options: AppOptions = {}) {
   );
   app.delete("/api/v1/spend-entries/:id", requireAuth, deleteSpendEntryHandler);
 
-  // Admin routes (Issue #25)
-  app.get(
-    "/api/v1/admin/cards",
-    requireAuth,
-    requireAdmin,
-    getAdminCardsHandler,
-  );
-  app.post(
-    "/api/v1/admin/cards",
-    requireAuth,
-    requireAdmin,
-    createAdminCardHandler,
-  );
-  app.patch(
-    "/api/v1/admin/cards/:id",
-    requireAuth,
-    requireAdmin,
-    updateAdminCardHandler,
-  );
-  app.post(
-    "/api/v1/admin/cards/:id/retire",
-    requireAuth,
-    requireAdmin,
-    retireAdminCardHandler,
-  );
-  app.get(
-    "/api/v1/admin/stores",
-    requireAuth,
-    requireAdmin,
-    getAdminStoresHandler,
-  );
-  app.post(
-    "/api/v1/admin/stores",
-    requireAuth,
-    requireAdmin,
-    createAdminStoreHandler,
-  );
-  app.patch(
-    "/api/v1/admin/stores/:id",
-    requireAuth,
-    requireAdmin,
-    updateAdminStoreHandler,
-  );
-  app.get(
-    "/api/v1/admin/audit-logs",
-    requireAuth,
-    requireAdmin,
-    getAdminAuditLogsHandler,
-  );
+  // Admin routes (Issue #25) - mounted after generalLimiter
+  app.use("/api/v1/admin", createAdminRouter());
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
