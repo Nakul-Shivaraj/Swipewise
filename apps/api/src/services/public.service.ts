@@ -44,6 +44,7 @@ export class PublicService {
     const currentQuarter = resolveUserQuarter({ now, timeZone: "UTC" });
 
     const rankableCards: RankableCard[] = catalogCards.map((card) => ({
+      walletCardId: card.id,
       cardId: card.id,
       name: card.name,
       issuer: card.issuer,
