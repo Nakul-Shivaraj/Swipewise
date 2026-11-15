@@ -108,6 +108,36 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     ownershipCheck: "user-scoped-list",
   },
 
+  // Public API (#26)
+  {
+    method: "GET",
+    path: "/api/v1/public/cards",
+    auth: "public",
+    csrf: false,
+    ownershipCheck: "shared-catalog-or-store",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/public/recommendations",
+    auth: "public",
+    csrf: false,
+    ownershipCheck: "shared-catalog-or-store",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/public/stores/search",
+    auth: "public",
+    csrf: false,
+    ownershipCheck: "shared-catalog-or-store",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/public/openapi.json",
+    auth: "public",
+    csrf: false,
+    ownershipCheck: "none",
+  },
+
   // Recommendations, stores, catalog
   {
     method: "GET",
@@ -519,14 +549,16 @@ export const SHARED_STRING_INPUT_FIELDS_INVENTORY = [
     schema: "storeSearchQuerySchema",
     field: "q",
     classification: "free-text (noCardNumberRefinement)",
-    endpoint: "GET /api/v1/stores/search & GET /api/v1/stores",
+    endpoint:
+      "GET /api/v1/stores/search, GET /api/v1/stores & GET /api/v1/public/stores/search",
     coveredByCardNumberEndpointTest: true,
   },
   {
     schema: "recommendationsQuerySchema",
     field: "category",
     classification: "enum (GROCERIES | DINING | GAS | TRAVEL)",
-    endpoint: "GET /api/v1/recommendations",
+    endpoint:
+      "GET /api/v1/recommendations & GET /api/v1/public/recommendations",
     coveredByCardNumberEndpointTest: true,
     reason: "Strict 4-value category enum rejects card numbers with 400.",
   },
@@ -534,7 +566,8 @@ export const SHARED_STRING_INPUT_FIELDS_INVENTORY = [
     schema: "recommendationsQuerySchema",
     field: "amountCents",
     classification: "integer string bounded 1..100_000_000",
-    endpoint: "GET /api/v1/recommendations",
+    endpoint:
+      "GET /api/v1/recommendations & GET /api/v1/public/recommendations",
     coveredByCardNumberEndpointTest: true,
     reason:
       "Max 100,000,000 (9 digits); 13-19 digit card numbers exceed max and fail with 400.",
@@ -1027,6 +1060,21 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
           request(localApp)
             .get(`/api/v1/stores?query=${encodeURIComponent(payload.input)}`)
             .set("Cookie", authCookie),
+          request(localApp).get(
+            `/api/v1/public/cards?q=${encodeURIComponent(payload.input)}`,
+          ),
+          request(localApp).get(
+            `/api/v1/public/recommendations?category=${encodeURIComponent(payload.input)}`,
+          ),
+          request(localApp).get(
+            `/api/v1/public/recommendations?category=DINING&amountCents=${encodeURIComponent(payload.input)}`,
+          ),
+          request(localApp).get(
+            `/api/v1/public/stores/search?q=${encodeURIComponent(payload.input)}`,
+          ),
+          request(localApp).get(
+            `/api/v1/public/openapi.json?q=${encodeURIComponent(payload.input)}`,
+          ),
           request(localApp)
             .post(`/api/v1/wallet/cards/${sampleUuid}/paid-cycles`)
             .set("Cookie", cookiesWithCsrf)
@@ -1534,6 +1582,23 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
               (!where.programId || where.programId.in.includes(b.programId)),
           ),
       },
+      card: {
+        findMany: async () => [
+          walletCards[0]!.card,
+          walletCards[1]!.card,
+          walletCards[2]!.card,
+        ],
+      },
+      store: {
+        findMany: async () => [
+          {
+            id: "store-safeway",
+            name: "Safeway",
+            category: "GROCERIES",
+            aliases: [{ alias: "safeway.com" }],
+          },
+        ],
+      },
     } as unknown as NonNullable<Parameters<typeof createApp>[0]>["prisma"];
 
     const localApp = createApp({
@@ -1587,6 +1652,82 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
       for (const id of userAIds) {
         expect(serialized, `GET ${listPath} leaked ${id}`).not.toContain(id);
       }
+    }
+
+    // Verify all 4 public routes work logged out, return no wallet or user data when called with User A's cookie, and enforce public rate limit (429)
+    const authCookieA = await signUserAuthCookie(
+      USER_A_ID,
+      "user-a@example.com",
+    );
+    const publicTestPaths = [
+      "/api/v1/public/cards",
+      "/api/v1/public/recommendations?category=GAS&amountCents=10000",
+      "/api/v1/public/stores/search?q=Safeway",
+      "/api/v1/public/openapi.json",
+    ];
+    const userWalletSignals = [
+      USER_A_ID,
+      USER_B_ID,
+      "user-a@example.com",
+      "user-b@example.com",
+      WC_A_HARBOR_ID,
+      WC_A_ORBIT_ID,
+      WC_B_MINT_ID,
+      "User A Harbor",
+      "User A Orbit",
+      "User B Mint",
+      NOTIF_A_ID,
+      NOTIF_B_ID,
+      BAL_A_ID,
+      BAL_B_ID,
+      SPEND_A_ID,
+      SPEND_B_ID,
+      "walletCardId",
+    ];
+
+    for (const pubPath of publicTestPaths) {
+      const loggedOutRes = await request(localApp).get(pubPath);
+      expect(loggedOutRes.status, `Logged-out GET ${pubPath}`).toBe(200);
+
+      const withCookieARes = await request(localApp)
+        .get(pubPath)
+        .set("Cookie", authCookieA);
+      expect(withCookieARes.status, `Cookie-A GET ${pubPath}`).toBe(200);
+      const serialized = JSON.stringify(withCookieARes.body);
+      for (const signal of userWalletSignals) {
+        expect(
+          serialized,
+          `Public GET ${pubPath} with User A cookie leaked ${signal}`,
+        ).not.toContain(signal);
+      }
+    }
+
+    // Verify public rate limit (429) on all 4 public routes using an isolated low-limit app instance
+    const publicRateHits = new Map<string, { hits: number; resetTime: Date }>();
+    const publicLimitedApp = createApp({
+      prisma: {
+        ...fakePrisma,
+        $queryRawUnsafe: async (_sql: string, key: string, resetTime: Date) => {
+          const entry = publicRateHits.get(key) ?? { hits: 0, resetTime };
+          entry.hits += 1;
+          publicRateHits.set(key, entry);
+          return [{ total_hits: entry.hits, reset_time: entry.resetTime }];
+        },
+      } as unknown as NonNullable<Parameters<typeof createApp>[0]>["prisma"],
+      schema: "test",
+      publicRateLimitMax: 2,
+      nowProvider: () => fixedDate,
+    });
+
+    for (const pubPath of publicTestPaths) {
+      publicRateHits.clear();
+      expect((await request(publicLimitedApp).get(pubPath)).status).toBe(200);
+      expect((await request(publicLimitedApp).get(pubPath)).status).toBe(200);
+      const thirdRes = await request(publicLimitedApp).get(pubPath);
+      expect(thirdRes.status, `Expected 429 on 3rd call to ${pubPath}`).toBe(
+        429,
+      );
+      expect(thirdRes.body.error?.code).toBe("RATE_LIMIT_EXCEEDED");
     }
 
     const crossMutations = [
@@ -2982,6 +3123,24 @@ describe.skipIf(!hasTestDatabase)(
 
           await prisma.rateLimit.deleteMany();
 
+          // 5b. Public API endpoints reject card-number input with 400
+          for (const pubUrl of [
+            `/api/v1/public/cards?q=${encodeURIComponent(payload.input)}`,
+            `/api/v1/public/recommendations?category=${encodeURIComponent(payload.input)}`,
+            `/api/v1/public/recommendations?category=DINING&amountCents=${encodeURIComponent(payload.input)}`,
+            `/api/v1/public/stores/search?q=${encodeURIComponent(payload.input)}`,
+            `/api/v1/public/openapi.json?q=${encodeURIComponent(payload.input)}`,
+          ]) {
+            const pubRes = await request(app).get(pubUrl);
+            expect(pubRes.status, `Expected 400 for ${pubUrl}`).toBe(400);
+            expect(JSON.stringify(pubRes.body)).not.toContain(payload.input);
+            expect(JSON.stringify(pubRes.body)).not.toContain(
+              payload.rawDigits,
+            );
+          }
+
+          await prisma.rateLimit.deleteMany();
+
           // 6. Spend entry free-text `note` field across all 6 POST/PATCH/PUT endpoints
           const spendEntryNoteRequests = [
             request(app)
@@ -3081,6 +3240,89 @@ describe.skipIf(!hasTestDatabase)(
         warnSpy.mockRestore();
         errorSpy.mockRestore();
       }
+    });
+
+    it("Public API (#26): all 4 public routes work logged out, return no wallet/user data when called with User A's cookie, and return 429 after the public limit", async () => {
+      const publicPaths = [
+        "/api/v1/public/cards",
+        "/api/v1/public/recommendations?category=GAS&amountCents=10000",
+        "/api/v1/public/stores/search?q=Safeway",
+        "/api/v1/public/openapi.json",
+      ];
+
+      const forbiddenUserSignals = [
+        userA.id,
+        userA.email,
+        userA.walletCardHarborId,
+        userA.walletCardOrbitId,
+        userA.paymentSettingId,
+        userA.paidCycleId,
+        userA.quarterActivationId,
+        userA.perkUsageId,
+        userA.walletCardBonusOfferId,
+        userA.spendEntryId,
+        userA.programBalanceId,
+        userA.notificationId,
+        userA.notificationPreferenceId,
+        "User A Harbor",
+        "User A Orbit",
+        "User A payment due soon",
+        "User A initial spend",
+        "walletCardId",
+      ];
+
+      for (const pubPath of publicPaths) {
+        await prisma.rateLimit.deleteMany();
+
+        const loggedOutRes = await request(app).get(pubPath);
+        expect(loggedOutRes.status, `Logged-out GET ${pubPath}`).toBe(200);
+
+        const withCookieARes = await request(app)
+          .get(pubPath)
+          .set("Cookie", userA.authCookie);
+        expect(withCookieARes.status, `Cookie-A GET ${pubPath}`).toBe(200);
+        const serialized = JSON.stringify(withCookieARes.body);
+        for (const forbidden of forbiddenUserSignals) {
+          expect(
+            serialized,
+            `GET ${pubPath} with User A cookie leaked ${forbidden}`,
+          ).not.toContain(forbidden);
+        }
+      }
+
+      // Even though User A activated 2026-Q4 on Orbit Quarterly in their wallet, public recommendations must rank it unactivated at base rate
+      const pubRecRes = await request(app)
+        .get("/api/v1/public/recommendations?category=GAS&amountCents=10000")
+        .set("Cookie", userA.authCookie);
+      expect(pubRecRes.status).toBe(200);
+      const orbitCard = pubRecRes.body.rankedCards.find(
+        (c: { name: string }) => c.name === "Orbit Quarterly",
+      );
+      expect(orbitCard).toBeDefined();
+      expect(orbitCard.usedBaseRate).toBe(true);
+      expect(orbitCard.activationNote).toBe("Activate to earn 5%");
+
+      // Isolated low-limit app instance to test 429 on all 4 public routes without affecting other tests
+      const limitedPublicApp = createApp({
+        prisma,
+        schema: "test",
+        publicRateLimitMax: 2,
+        cronSecret: TEST_CRON_SECRET,
+        nowProvider: () => fixedNow,
+      });
+
+      for (const pubPath of publicPaths) {
+        await prisma.rateLimit.deleteMany();
+        expect((await request(limitedPublicApp).get(pubPath)).status).toBe(200);
+        expect((await request(limitedPublicApp).get(pubPath)).status).toBe(200);
+        const thirdRes = await request(limitedPublicApp).get(pubPath);
+        expect(thirdRes.status, `Expected 429 on 3rd call to ${pubPath}`).toBe(
+          429,
+        );
+        expect(thirdRes.body.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+      }
+
+      await prisma.rateLimit.deleteMany();
     });
   },
 );

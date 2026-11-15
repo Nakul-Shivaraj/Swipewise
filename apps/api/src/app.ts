@@ -63,6 +63,7 @@ import { prisma as defaultPrisma } from "./db.js";
 export interface AppOptions {
   rateLimitMax?: number;
   generalRateLimitMax?: number;
+  publicRateLimitMax?: number;
   prisma?: PrismaClient;
   schema?: string;
   csrfSecret?: string;
