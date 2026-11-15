@@ -58,7 +58,7 @@ Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 |---|---|---|---|
 | Nakul | #25 | Admin pages and audit log (stretch) | #56 |
 | Dhanraj | #26 | Public API with OpenAPI docs (stretch) | #58 |
-| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log, README (Dhanraj); demo video (Nakul) | #53 + follow-up PRs |
+| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log (Dhanraj); README, demo video (Nakul) | #53 + follow-up PRs |
 
 ## Process work
 
