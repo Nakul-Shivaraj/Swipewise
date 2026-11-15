@@ -47,6 +47,12 @@ import {
   deleteSpendEntryHandler,
 } from "./controllers/bonus.controller.js";
 import { createAdminRouter } from "./routes/admin.routes.js";
+import {
+  getPublicCardsHandler,
+  getPublicOpenApiHandler,
+  getPublicRecommendationsHandler,
+  searchPublicStoresHandler,
+} from "./controllers/public.controller.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -65,6 +71,7 @@ import { prisma as defaultPrisma } from "./db.js";
 export interface AppOptions {
   rateLimitMax?: number;
   generalRateLimitMax?: number;
+  publicRateLimitMax?: number;
   prisma?: PrismaClient;
   schema?: string;
   csrfSecret?: string;
@@ -155,13 +162,34 @@ export function createApp(options: AppOptions = {}) {
   // CSRF protection for all state-changing requests
   app.use(doubleCsrfProtection);
 
-  // General Postgres-backed rate limiting for all /api/v1 routes
+  // General Postgres-backed rate limiting for all non-public /api/v1 routes
   const generalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: options.generalRateLimitMax ?? 100,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req: Request) =>
+      req.path.startsWith("/public/") ||
+      req.path === "/public" ||
+      req.originalUrl.startsWith("/api/v1/public"),
     store: new PostgresRateLimitStore(activePrisma, activeSchema, "general"),
+    handler: (_req: Request, res: Response) => {
+      res.status(429).json({
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Too many requests. Please try again later.",
+        },
+      });
+    },
+  });
+
+  // Dedicated Postgres-backed rate limiting for /api/v1/public/* routes (Issue #26)
+  const publicLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: options.publicRateLimitMax ?? 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new PostgresRateLimitStore(activePrisma, activeSchema, "public"),
     handler: (_req: Request, res: Response) => {
       res.status(429).json({
         error: {
@@ -190,6 +218,25 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.use("/api/v1", generalLimiter);
+
+  // Public API routes (Issue #26) — read-only, no session cookies or auth middleware
+  app.get("/api/v1/public/cards", publicLimiter, getPublicCardsHandler);
+  app.get(
+    "/api/v1/public/recommendations",
+    publicLimiter,
+    getPublicRecommendationsHandler,
+  );
+  app.get(
+    "/api/v1/public/stores/search",
+    publicLimiter,
+    searchPublicStoresHandler,
+  );
+  app.get(
+    "/api/v1/public/openapi.json",
+    publicLimiter,
+    getPublicOpenApiHandler,
+  );
+
   app.post("/api/v1/auth/signup", authLimiter, signupHandler);
   app.post("/api/v1/auth/login", authLimiter, loginHandler);
   app.post("/api/v1/auth/logout", logoutHandler);
