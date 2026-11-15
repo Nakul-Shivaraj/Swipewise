@@ -13,7 +13,7 @@
 3. [Architecture](#architecture)
    - [System Architecture](#system-architecture)
    - [Database Schema (ERD)](#database-schema-erd)
-4. [Local Setup](#local-setup)
+4. [Local setup](#local-setup)
    - [Prerequisites](#prerequisites)
    - [Installation & Configuration](#installation--configuration)
    - [Environment Variables](#environment-variables)
@@ -44,11 +44,11 @@
 People with multiple credit cards often use the wrong card, forget recurring statement perks, miss rotating category activations, let points expire, or miss payment due dates. SwipeWise solves this by serving as an intelligent, private wallet optimizer:
 
 - **Smart Card Recommendations by Category:** Recommends the highest-earning wallet card for Groceries, Dining, Gas, or Travel. All calculations are executed on the server in whole integer cents using card base rates, category reward rules, and program valuations (`amountCents × rateX100 × centsPer100Points / 1_000_000`).
-- **Store Search & Auto-Categorization:** Real-time search with store alias mapping (e.g., "Trader Joe's", "Whole Foods", "Shell") that resolves merchant names to spending categories and recommends the optimal card.
+- **Store Search & Auto-Categorization:** Real-time search with store alias mapping (e.g., "Trader Joe’s", "Whole Foods", "Shell") that resolves merchant names to spending categories and recommends the optimal card.
 - **Wallet Management:** Browse the demo card catalog, add cards to a personal wallet, configure custom card nicknames, and record card opened dates.
-- **5% Rotating Categories & Quarter Activations:** Track quarterly 5% bonus categories (e.g., Q1 Groceries, Q2 Gas) and log quarter activations for cards like Freedom Flex and Discover it.
+- **5% Rotating Categories & Quarter Activations:** Track quarterly 5% bonus categories (e.g., Q4 Gas, Q1 Groceries) and log quarter activations for cards with rotating categories (such as Orbit Quarterly).
 - **Perks Tracker:** Track recurring statement credits (Monthly, Quarterly, Semiannual, Annual) across wallet cards, record used amounts in whole cents, and receive automated reminders 5 days before a perk period closes.
-- **Sign-Up Bonus Tracker:** Monitor welcome bonus spending requirements within designated time windows (e.g., spend $4,000 in 3 months for 60,000 bonus points) with custom spend entries and progress tracking.
+- **Sign-Up Bonus Tracker:** Monitor welcome bonus spending requirements within designated time windows (e.g., spend $3,000 in 3 months for 60,000 bonus points) with custom spend entries and progress tracking.
 - **Payment Due Reminders & Cycle Tracking:** Configure card due dates and autopay settings, track paid statement cycles (`YYYY-MM`), and receive notifications before payment deadlines.
 - **Points Balances & Expiry Alerts:** Manage reward program point balances across issuers and receive alerts ahead of points expiration dates.
 - **In-App Notification Center:** Automated daily reminder processing via Vercel Cron (`0 9 * * *`) that generates deduplicated in-app alerts across payment due dates, ending perks, rotating category activations, and expiring points.
@@ -354,7 +354,7 @@ erDiagram
 
 ---
 
-## Local Setup
+## Local setup
 
 ### Prerequisites
 
