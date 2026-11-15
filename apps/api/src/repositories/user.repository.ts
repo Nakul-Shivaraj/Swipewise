@@ -37,6 +37,13 @@ export class UserRepository {
     });
   }
 
+  async updateRole(id: string, role: "USER" | "ADMIN"): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { role },
+    });
+  }
+
   async clear(): Promise<void> {
     await this.prisma.user.deleteMany();
   }

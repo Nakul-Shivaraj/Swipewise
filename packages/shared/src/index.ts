@@ -1,3 +1,4 @@
+export * from "./schemas/admin.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/bonus.js";
 export * from "./schemas/catalog.js";

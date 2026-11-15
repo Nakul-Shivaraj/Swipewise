@@ -46,6 +46,7 @@ import {
   updateSpendEntryHandler,
   deleteSpendEntryHandler,
 } from "./controllers/bonus.controller.js";
+import { createAdminRouter } from "./routes/admin.routes.js";
 import {
   getPublicCardsHandler,
   getPublicOpenApiHandler,
@@ -63,6 +64,7 @@ import { NotificationRepository } from "./repositories/notification.repository.j
 import { PointsBalanceRepository } from "./repositories/points-balance.repository.js";
 import { PerkRepository } from "./repositories/perk.repository.js";
 import { BonusRepository } from "./repositories/bonus.repository.js";
+import { AdminRepository } from "./repositories/admin.repository.js";
 import { ReminderGeneratorRegistry } from "./domain/reminders.js";
 import { prisma as defaultPrisma } from "./db.js";
 
@@ -93,6 +95,7 @@ export function createApp(options: AppOptions = {}) {
   app.set("pointsBalanceRepo", new PointsBalanceRepository(activePrisma));
   app.set("perkRepo", new PerkRepository(activePrisma));
   app.set("bonusRepo", new BonusRepository(activePrisma));
+  app.set("adminRepo", new AdminRepository(activePrisma));
   if (options.cronSecret !== undefined) {
     app.set("cronSecret", options.cronSecret);
   }
@@ -393,6 +396,9 @@ export function createApp(options: AppOptions = {}) {
     deleteSpendEntryHandler,
   );
   app.delete("/api/v1/spend-entries/:id", requireAuth, deleteSpendEntryHandler);
+
+  // Admin routes (Issue #25) - mounted after generalLimiter
+  app.use("/api/v1/admin", createAdminRouter());
 
   // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

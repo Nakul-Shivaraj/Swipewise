@@ -64,6 +64,7 @@ interface RouteSecuritySpec {
     | "user-scoped-list"
     | "user-scoped-mutation"
     | "shared-catalog-or-store"
+    | "admin-only"
     | "none";
 }
 
@@ -454,6 +455,63 @@ export const SECURITY_ROUTE_MATRIX: readonly RouteSecuritySpec[] = [
     csrf: true,
     ownershipCheck: "cross-user-id-404",
   },
+  // Admin routes (Issue #25)
+  {
+    method: "GET",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/cards/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/cards/:id/retire",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/stores",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/admin/stores/:id",
+    auth: "requireAuth",
+    csrf: true,
+    ownershipCheck: "admin-only",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/audit-logs",
+    auth: "requireAuth",
+    csrf: false,
+    ownershipCheck: "admin-only",
+  },
 ] as const;
 
 /**
@@ -652,7 +710,9 @@ interface RouterLayer {
   };
   handle?: {
     stack?: RouterLayer[];
+    basePath?: string;
   };
+  matchers?: Array<(input: string) => boolean | { path?: string }>;
 }
 
 function extractApiV1Routes(app: Express): string[] {
@@ -672,10 +732,10 @@ function extractApiV1Routes(app: Express): string[] {
   const stack = router?.stack ?? [];
   const discovered = new Set<string>();
 
-  function walk(layers: RouterLayer[]) {
+  function walk(layers: RouterLayer[], prefix = "") {
     for (const layer of layers) {
       if (layer.route?.path && layer.route.methods) {
-        const routePath = layer.route.path;
+        const routePath = `${prefix}${layer.route.path}`;
         if (routePath.startsWith("/api/v1")) {
           for (const [method, enabled] of Object.entries(layer.route.methods)) {
             if (enabled) {
@@ -685,7 +745,19 @@ function extractApiV1Routes(app: Express): string[] {
         }
       }
       if (layer.handle?.stack) {
-        walk(layer.handle.stack);
+        let subPrefix = layer.handle.basePath ?? prefix;
+        if (!subPrefix && layer.matchers?.[0]) {
+          const matchResult = layer.matchers[0]("/api/v1/admin");
+          if (
+            matchResult &&
+            typeof matchResult === "object" &&
+            "path" in matchResult &&
+            typeof matchResult.path === "string"
+          ) {
+            subPrefix = matchResult.path;
+          }
+        }
+        walk(layer.handle.stack, subPrefix);
       }
     }
   }
@@ -2424,7 +2496,7 @@ describe.skipIf(!hasTestDatabase)(
       const protectedRoutes = SECURITY_ROUTE_MATRIX.filter(
         (r) => r.auth === "requireAuth",
       );
-      expect(protectedRoutes.length).toBe(43);
+      expect(protectedRoutes.length).toBe(51);
 
       const csrf = await getCsrfTokenAndCookie(app);
 
@@ -2457,7 +2529,7 @@ describe.skipIf(!hasTestDatabase)(
 
     it("CSRF: every state-changing /api/v1 endpoint rejects requests without a valid CSRF token with 403 EBADCSRFTOKEN", async () => {
       const csrfRoutes = SECURITY_ROUTE_MATRIX.filter((r) => r.csrf);
-      expect(csrfRoutes.length).toBe(30);
+      expect(csrfRoutes.length).toBe(35);
 
       for (const route of csrfRoutes) {
         await prisma.rateLimit.deleteMany();
@@ -2479,6 +2551,38 @@ describe.skipIf(!hasTestDatabase)(
           `Expected 403 EBADCSRFTOKEN for ${route.method} ${route.path}, got ${res.status}`,
         ).toBe(403);
         expect(res.body.error?.code).toBe("EBADCSRFTOKEN");
+      }
+    });
+
+    it("Admin routes: non-admin logged-in user gets 403 FORBIDDEN on every admin route", async () => {
+      const adminRoutes = SECURITY_ROUTE_MATRIX.filter(
+        (r) => r.ownershipCheck === "admin-only",
+      );
+      expect(adminRoutes.length).toBe(8);
+
+      for (const route of adminRoutes) {
+        await prisma.rateLimit.deleteMany();
+        const url = materializeRoutePath(route.path, userA);
+        const method = route.method.toLowerCase() as
+          | "get"
+          | "post"
+          | "put"
+          | "patch"
+          | "delete";
+
+        let req = request(app)
+          [method](url)
+          .set("Cookie", userA.cookiesWithCsrf);
+        if (route.csrf) {
+          req = req.set("x-csrf-token", userA.csrfToken).send({});
+        }
+
+        const res = await req;
+        expect(
+          res.status,
+          `Expected 403 for non-admin on ${route.method} ${route.path}, got ${res.status}`,
+        ).toBe(403);
+        expect(res.body.error?.code).toBe("FORBIDDEN");
       }
     });
 
