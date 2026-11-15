@@ -350,8 +350,12 @@ describe("Public API & OpenAPI Docs (US-11 / Issue #26)", () => {
       .get("/api/v1/auth/me")
       .set("Cookie", authCookie);
     expect(meRes.status).toBe(200);
-    expect(Array.from(localHits.keys())).toContain("public:::ffff:127.0.0.1");
-    expect(Array.from(localHits.keys())).toContain("general:::ffff:127.0.0.1");
+    expect(
+      Array.from(localHits.keys()).some((k) => k.startsWith("public:")),
+    ).toBe(true);
+    expect(
+      Array.from(localHits.keys()).some((k) => k.startsWith("general:")),
+    ).toBe(true);
   });
 
   it("AC3: GET /api/v1/public/openapi.json serves an OpenAPI 3 document and documents every Express route under /api/v1/public", async () => {

@@ -18,7 +18,7 @@ export interface RankableRotatingRule {
 }
 
 export interface RankableCard {
-  walletCardId: string;
+  walletCardId?: string;
   cardId: string;
   name: string;
   issuer: string;
@@ -162,7 +162,7 @@ export function rankCards(input: RankCardsInput): RankedCardResult[] {
       input.currentQuarter,
     );
     return {
-      walletCardId: card.walletCardId,
+      walletCardId: card.walletCardId ?? card.cardId,
       cardId: card.cardId,
       name: card.name,
       issuer: card.issuer,

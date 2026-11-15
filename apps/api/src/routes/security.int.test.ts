@@ -18,6 +18,8 @@ import {
   loginRequestSchema,
   markCyclePaidRequestSchema,
   notificationItemSchema,
+  publicEmptyQuerySchema,
+  publicQueryGuardSchema,
   recommendationsQuerySchema,
   signupRequestSchema,
   storeSearchQuerySchema,
@@ -633,6 +635,14 @@ export const SHARED_STRING_INPUT_FIELDS_INVENTORY = [
     reason:
       "Strict 10-char YYYY-MM-DD regex rejects 13-19 digit card numbers with 400.",
   },
+  {
+    schema: "publicEmptyQuerySchema / publicQueryGuardSchema",
+    field: "any query parameter key or value",
+    classification: "free-text query guard (noCardNumberRefinement)",
+    endpoint:
+      "GET /api/v1/public/cards, GET /api/v1/public/recommendations, GET /api/v1/public/stores/search, GET /api/v1/public/openapi.json",
+    coveredByCardNumberEndpointTest: true,
+  },
 ] as const;
 
 interface RouterLayer {
@@ -787,6 +797,13 @@ describe("Security Suite — Route Coverage Guard, CI Guard & Shared Schema Stri
         q: payload.input,
       });
       expect(storeQueryRes.success).toBe(false);
+
+      expect(
+        publicEmptyQuerySchema.safeParse({ q: payload.input }).success,
+      ).toBe(false);
+      expect(
+        publicQueryGuardSchema.safeParse({ q: payload.input }).success,
+      ).toBe(false);
 
       const notifRes = notificationItemSchema.safeParse({
         id: "11111111-1111-4111-8111-111111111111",
