@@ -52,13 +52,14 @@ Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 | Nakul | #21 | Perks tracker | #49 |
 | Nakul | #22 | Sign-up bonus tracker | #51 |
 
-## After Sprint 2 (merged Nov 14)
+## After Sprint 2 (merged Nov 14–15)
 
 | Owner | Issue | Work | PR |
 |---|---|---|---|
 | Nakul | #25 | Admin pages and audit log (stretch) | #56 |
-| Dhanraj | #26 | Public API with OpenAPI docs (stretch) | #58 |
-| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log (Dhanraj); README, demo video (Nakul) | #53 + follow-up PRs |
+| Dhanraj | #26 | First public API with an OpenAPI JSON document (stretch) | #58 |
+| Nakul | #50 | Public API v1 with Swagger UI and an OpenAPI spec generated from the Zod schemas | #60 |
+| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log (Dhanraj); README, demo video (Nakul) | #53, #57, #59, final docs PR |
 
 ## Process work
 
@@ -69,11 +70,11 @@ Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 
 | Issue | Owner | Status |
 |---|---|---|
-| #50 Full E2E coverage and code cleanup | Dhanraj | Moved to backlog |
+| Full E2E coverage for the Sprint 2 flows and code cleanup (originally tracked in #50, which was later reused for the public API v1) | Dhanraj | Not started; listed as future work in the README |
 
-## Totals (merged PRs before this log was added)
+## Totals (merged PRs as of Nov 15, 2026, not counting the final docs PR)
 
 | Person | Before Sprint 1 | Sprint 1 | Sprint 2 | After Sprint 2 | Total |
 |---|---|---|---|---|---|
-| Dhanraj | 3 | 5 | 6 | 2 | 16 |
-| Nakul | 5 | 5 | 2 | 1 | 13 |
+| Dhanraj | 3 | 5 | 6 | 3 | 17 |
+| Nakul | 5 | 5 | 2 | 3 | 15 |
