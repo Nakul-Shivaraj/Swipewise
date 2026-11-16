@@ -108,3 +108,21 @@ export interface PublicRecommendationsResponse {
   bestCard: PublicRankedCardResult | null;
   rankedCards: PublicRankedCardResult[];
 }
+
+export const publicCategoriesResponseSchema = z.object({
+  categories: z.array(z.enum(["GROCERIES", "DINING", "GAS", "TRAVEL"])),
+});
+
+export type PublicCategoriesResponse = z.infer<
+  typeof publicCategoriesResponseSchema
+>;
+
+export const publicStoresQuerySchema = z
+  .object({
+    query: z.string().min(1).max(100).optional(),
+    q: z.string().min(1).max(100).optional(),
+  })
+  .refine((data) => Boolean(data.query || data.q), {
+    message: "Enter a store name between 1 and 100 characters.",
+    path: ["query"],
+  });

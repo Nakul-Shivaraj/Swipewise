@@ -49,10 +49,13 @@ import {
 import { createAdminRouter } from "./routes/admin.routes.js";
 import {
   getPublicCardsHandler,
+  getPublicCategoriesHandler,
   getPublicOpenApiHandler,
   getPublicRecommendationsHandler,
   searchPublicStoresHandler,
 } from "./controllers/public.controller.js";
+import swaggerUi from "swagger-ui-express";
+import { generateOpenApiSpec } from "./public/openapi-generator.js";
 import { requireAuth } from "./middleware/auth.middleware.js";
 import { PostgresRateLimitStore } from "./middleware/postgres-rate-limit.js";
 import { UserRepository } from "./repositories/user.repository.js";
@@ -106,15 +109,31 @@ export function createApp(options: AppOptions = {}) {
     app.set("nowProvider", options.nowProvider);
   }
 
-  app.use(helmet());
-  app.use(
-    cors({
-      origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-      credentials: true,
-    }),
-  );
+  app.use(helmet({ contentSecurityPolicy: false }));
+  const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const isPublic =
+      req.path.startsWith("/api/public") ||
+      req.path.startsWith("/public") ||
+      req.path.startsWith("/api/v1/public");
+    if (isPublic) {
+      cors({ origin: "*" })(req, res, next);
+    } else {
+      cors({
+        origin: allowedOrigins,
+        credentials: true,
+      })(req, res, next);
+    }
+  });
   app.use(cookieParser());
   app.use(express.json());
+
+  // Swagger UI & OpenAPI Specification (Issue #50)
+  const openApiSpec = generateOpenApiSpec();
+  app.get("/api/openapi.json", (_req: Request, res: Response) => {
+    res.status(200).json(openApiSpec);
+  });
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
   // CSRF protection setup (double-submit cookie pattern)
   const csrfSecret =
@@ -171,6 +190,8 @@ export function createApp(options: AppOptions = {}) {
     skip: (req: Request) =>
       req.path.startsWith("/public/") ||
       req.path === "/public" ||
+      req.path.startsWith("/api/public") ||
+      req.originalUrl.startsWith("/api/public") ||
       req.originalUrl.startsWith("/api/v1/public"),
     store: new PostgresRateLimitStore(activePrisma, activeSchema, "general"),
     handler: (_req: Request, res: Response) => {
@@ -183,7 +204,7 @@ export function createApp(options: AppOptions = {}) {
     },
   });
 
-  // Dedicated Postgres-backed rate limiting for /api/v1/public/* routes (Issue #26)
+  // Dedicated Postgres-backed rate limiting for /api/v1/public/* and /api/public/* routes (Issue #26, #50)
   const publicLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: options.publicRateLimitMax ?? 60,
@@ -219,7 +240,26 @@ export function createApp(options: AppOptions = {}) {
 
   app.use("/api/v1", generalLimiter);
 
-  // Public API routes (Issue #26) — read-only, no session cookies or auth middleware
+  // Public API routes (Issue #50) — read-only, no session cookies or auth middleware
+  app.get("/api/public/v1/cards", publicLimiter, getPublicCardsHandler);
+  app.get(
+    "/api/public/v1/categories",
+    publicLimiter,
+    getPublicCategoriesHandler,
+  );
+  app.get("/api/public/v1/stores", publicLimiter, searchPublicStoresHandler);
+  app.get(
+    "/api/public/v1/best-card",
+    publicLimiter,
+    getPublicRecommendationsHandler,
+  );
+  app.get(
+    "/api/public/v1/recommendations",
+    publicLimiter,
+    getPublicRecommendationsHandler,
+  );
+
+  // Public API routes legacy aliases (Issue #26)
   app.get("/api/v1/public/cards", publicLimiter, getPublicCardsHandler);
   app.get(
     "/api/v1/public/recommendations",
