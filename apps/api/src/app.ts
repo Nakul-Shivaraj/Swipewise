@@ -112,28 +112,56 @@ export function createApp(options: AppOptions = {}) {
   // Trust first proxy hop (e.g. Vercel) so req.ip and rate limiters use client IP
   app.set("trust proxy", 1);
 
-  // Scoped Content Security Policy: enabled for app, disabled for /api/docs Swagger UI
+  // Scoped Content Security Policy: dedicated policy for /api/docs Swagger UI, default everywhere else
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api/docs") || req.path === "/api/docs") {
-      helmet({ contentSecurityPolicy: false })(req, res, next);
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'"],
+          },
+        },
+      })(req, res, next);
     } else {
       helmet()(req, res, next);
     }
   });
   const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const isPublic =
-      req.path.startsWith("/api/public") ||
-      req.path.startsWith("/public") ||
-      req.path.startsWith("/api/v1/public");
-    if (isPublic) {
-      cors({ origin: "*" })(req, res, next);
+    if (req.path.startsWith("/api/public/")) {
+      cors({
+        origin: "*",
+        methods: ["GET", "HEAD", "OPTIONS"],
+        credentials: false,
+      })(req, res, next);
     } else {
       cors({
         origin: allowedOrigins,
         credentials: true,
       })(req, res, next);
     }
+  });
+
+  // Public routes are strictly read-only; refuse state-changing HTTP methods
+  app.use("/api/public", (req: Request, res: Response, next: NextFunction) => {
+    if (
+      req.method !== "GET" &&
+      req.method !== "HEAD" &&
+      req.method !== "OPTIONS"
+    ) {
+      res.status(405).json({
+        error: {
+          code: "METHOD_NOT_ALLOWED",
+          message: "Method not allowed. Public API is read-only.",
+        },
+      });
+      return;
+    }
+    next();
   });
   app.use(cookieParser());
   app.use(express.json());

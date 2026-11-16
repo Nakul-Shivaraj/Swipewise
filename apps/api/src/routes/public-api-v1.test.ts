@@ -372,7 +372,7 @@ describe("Public API & OpenAPI Specification (#50)", () => {
       expect(res.headers["access-control-allow-origin"]).toBe("*");
     });
 
-    it("handles CORS preflight for /api/public/* routes", async () => {
+    it("handles CORS preflight for /api/public/* routes with explicit GET, HEAD, OPTIONS and credentials false", async () => {
       const res = await request(app)
         .options("/api/public/v1/cards")
         .set("Origin", "https://untrusted-external-site.com")
@@ -380,6 +380,44 @@ describe("Public API & OpenAPI Specification (#50)", () => {
 
       expect([200, 204]).toContain(res.status);
       expect(res.headers["access-control-allow-origin"]).toBe("*");
+      expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
+      const allowMethods = res.headers["access-control-allow-methods"] || "";
+      expect(allowMethods).toContain("GET");
+      expect(allowMethods).toContain("HEAD");
+      expect(allowMethods).toContain("OPTIONS");
+      expect(allowMethods).not.toContain("POST");
+    });
+
+    it("refuses POST to public routes from another origin and accepts no cookies", async () => {
+      const authCookie = await createAuthCookie(
+        "99999999-9999-4999-8999-999999999999",
+        "cookie-user@example.com",
+      );
+
+      // Preflight for POST is refused: Access-Control-Allow-Methods does not contain POST
+      const preflightRes = await request(app)
+        .options("/api/public/v1/cards")
+        .set("Origin", "https://untrusted-external-site.com")
+        .set("Access-Control-Request-Method", "POST");
+
+      const allowMethods =
+        preflightRes.headers["access-control-allow-methods"] || "";
+      expect(
+        allowMethods.split(",").map((m: string) => m.trim()),
+      ).not.toContain("POST");
+
+      // Direct POST is refused
+      const postRes = await request(app)
+        .post("/api/public/v1/cards")
+        .set("Origin", "https://untrusted-external-site.com")
+        .set("Cookie", authCookie)
+        .send({ name: "Malicious Post" });
+
+      expect([404, 405]).toContain(postRes.status);
+      expect(
+        postRes.headers["access-control-allow-credentials"],
+      ).toBeUndefined();
+      expect(postRes.headers["set-cookie"]).toBeUndefined();
     });
 
     it("does not allow arbitrary origins for internal /api/v1 routes", async () => {
@@ -392,23 +430,31 @@ describe("Public API & OpenAPI Specification (#50)", () => {
   });
 
   describe("AC4: Swagger UI loads and OpenAPI spec is served", () => {
-    it("serves Swagger UI at /api/docs", async () => {
+    it("serves Swagger UI at /api/docs and confirms HTML renders", async () => {
       const res = await request(app).get("/api/docs/");
       expect(res.status).toBe(200);
       expect(res.text).toContain("swagger-ui");
     });
 
-    it("enforces Content Security Policy on the rest of the app while allowing Swagger UI at /api/docs", async () => {
+    it("enforces dedicated Swagger UI Content Security Policy on /api/docs without unsafe-eval, and default CSP everywhere else", async () => {
       const docsRes = await request(app).get("/api/docs/");
       expect(docsRes.status).toBe(200);
-      expect(docsRes.headers["content-security-policy"]).toBeUndefined();
+      expect(docsRes.text).toContain("swagger-ui");
+
+      const docsCsp = docsRes.headers["content-security-policy"];
+      expect(docsCsp).toBeDefined();
+      expect(docsCsp).toContain("default-src 'self'");
+      expect(docsCsp).toContain("script-src 'self'");
+      expect(docsCsp).toContain("style-src 'self' 'unsafe-inline'");
+      expect(docsCsp).toContain("img-src 'self' data:");
+      expect(docsCsp).not.toContain("'unsafe-eval'");
 
       const healthRes = await request(app).get("/api/health");
       expect(healthRes.status).toBe(200);
-      expect(healthRes.headers["content-security-policy"]).toBeDefined();
-      expect(healthRes.headers["content-security-policy"]).toContain(
-        "default-src 'self'",
-      );
+      const appCsp = healthRes.headers["content-security-policy"];
+      expect(appCsp).toBeDefined();
+      expect(appCsp).toContain("default-src 'self'");
+      expect(appCsp).toContain("base-uri 'self'");
     });
 
     it("serves OpenAPI JSON specification at /api/openapi.json", async () => {
