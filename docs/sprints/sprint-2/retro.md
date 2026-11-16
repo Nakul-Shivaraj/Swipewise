@@ -29,7 +29,7 @@
 - **Two public APIs:** #26 (Dhanraj, PR #58) and #50 (Nakul, PR #60) both exist, because we didn't check the board before starting #50.
 - Issue #50 had been the E2E and cleanup card. Reusing it for the public API removed that card from the board; the work is listed as future work in the README.
 - Points expiry got its own `/points` page instead of living on the Tracker, as in the mockup.
-- **Standups:** the plan called for async standups in Slack on Nov 10, 11, and 12, but none were posted on those days. Catch-up standups for Nov 14 and 15 were posted on Nov 15.
+- **Standups:** the plan called for async standups in Slack on Nov 10, 11, and 12. We checked in daily on WhatsApp instead, so nothing was posted in Slack those days. Catch-up standups for Nov 14 and 15 were posted in Slack on Nov 15.
 - Some PRs were approved within minutes of being opened.
 - #28 and the stretch work ran past the Nov 12 due date.
 - **Sprint 1 actions:** the E2E check is still not required in branch protection.
@@ -44,7 +44,7 @@
 
 ## To improve
 
-- Post the async standup every day, even on busy build days.
+- Post standups in Slack, our agreed channel, so they're on the record, even when we've already talked on WhatsApp.
 - Check the board for existing issues before creating new ones, and never repurpose an issue.
 - Review PRs properly: open **Files changed** and check the commits for tests first, migrations, and new libraries.
 - Keep shared files (schema, seed, notifications) to one change at a time, merge one PR at a time, and update each branch from `main` before merging.
@@ -65,7 +65,7 @@
 
 **Nakul → Dhanraj**
 
-As Scrum Master, Dhanraj ran planning with a clear goal, order, and owners, and built the reminder job first so the other reminder features could reuse it. He ran a full QA pass on production, wrote the security suite covering every endpoint, and fixed `main` the same evening it went red. He also kept our docs honest and complete. One thing to do differently: keep the daily standups going even on busy days (none were posted Nov 10–12), and merge one PR at a time after updating from `main`. #52 merged a minute after #51 and turned `main` red.
+As Scrum Master, Dhanraj ran planning with a clear goal, order, and owners, and built the reminder job first so the other reminder features could reuse it. He ran a full QA pass on production, wrote the security suite covering every endpoint, and fixed `main` the same evening it went red. He also kept our docs honest and complete. One thing to do differently: keep posting the daily standups in Slack even on busy days (we only checked in on WhatsApp Nov 10–12), and merge one PR at a time after updating from `main`. #52 merged a minute after #51 and turned `main` red.
 
 **Dhanraj → Nakul**
 

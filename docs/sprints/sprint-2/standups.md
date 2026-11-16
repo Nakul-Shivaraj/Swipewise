@@ -2,7 +2,7 @@
 
 **Plan (Sprint 2 planning post, Nov 9):** "Standups: async here on Nov 10, 11, 12."
 
-**What happened:** no standups were posted in Slack on Nov 10, 11, or 12. On Nov 9 the Scrum Master posted the sprint plan and a QA report on production (see `planning.md` and `review.md`). After the sprint ended, both partners posted catch-up standups for Nov 14 and Nov 15, on Nov 15 at Nakul's request. They are copied below word for word. The missed in-sprint standups are covered in the Sprint 2 retrospective.
+**What happened:** on Nov 10, 11, and 12 we checked in with each other daily on WhatsApp instead of posting in Slack, so there are no Slack standup posts for those days. On Nov 9 the Scrum Master posted the sprint plan and a QA report on production in Slack (see `planning.md` and `review.md`). After the sprint ended, both partners posted catch-up standups for Nov 14 and Nov 15 in Slack, on Nov 15 at Nakul's request. They are copied below word for word. Using the wrong channel is covered in the Sprint 2 retrospective.
 
 To show what each partner worked on during the sprint days, the next section lists daily progress taken from GitHub. It is not a standup record.
 
