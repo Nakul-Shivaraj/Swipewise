@@ -7,7 +7,7 @@
 | **Result** | Goal met. Every issue in the milestone closed, including 4 bugs found during the sprint |
 | **Scrum Master** | Nakul |
 | **Product Owner** | Dhanraj |
-| **Retro date** | **TO FILL (both):** the date the retro was actually held |
+| **Retro date** | Not recorded. The action items were recorded in the Sprint 2 planning post in Slack on Nov 9 |
 | **Attendees** | Nakul, Dhanraj |
 
 "What happened" is taken from our issues, PRs, commits, and Slack. The action items are copied from where they were recorded at the time: the Sprint 2 planning post in Slack (Nov 9). Partner feedback is in each partner's own words.
@@ -51,8 +51,8 @@ The same post also set the database rule: one migration per PR, merge one at a t
 
 **Nakul → Dhanraj**
 
-**TO FILL (Nakul, in his own words):** what Dhanraj did that helped most this sprint, and one thing he could do differently.
+Dhanraj set up our CI pipeline and branch protection on day two (lint, typecheck, tests, build, audit, CodeQL, and a pre-commit hook), so every PR after that was checked automatically. He deployed the app on Vercel with PR previews and a health check, built best card and store search, and wrote the E2E suite, which caught a real bug before release: the auth rate limit was locking out logged-in users. He also created the Sprint 2 issues with acceptance criteria. One thing to do differently: set up the local database so integration and E2E tests run before pushing, instead of finding failures only in CI.
 
 **Dhanraj → Nakul**
 
-**TO FILL (Dhanraj, in his own words):** what Nakul did that helped most this sprint, and one thing he could do differently.
+Nakul got the foundation in place fast: project structure, Supabase, the Prisma schema, and demo data. His Oct 30 update gave me the database setup steps and my next cards, so I could start deploy (#6) and best card (#12) without waiting. He also ran the planning meeting and posted the minutes the same day. One thing to do differently: send every change through a PR, even small fixes (one went straight to `main`), and post standups on the day instead of catching up two at once.

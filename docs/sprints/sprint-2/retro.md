@@ -7,7 +7,7 @@
 | **Result** | Goal met: all five reminder areas were merged, and so deployed, by Nov 12. 10 of 11 milestone issues closed; #28 (final docs and demo) is still open. The stretch issues, #25 (admin) and #26 (public API), were finished on Nov 14 |
 | **Scrum Master** | Dhanraj |
 | **Product Owner** | Nakul |
-| **Retro date** | **TO FILL (both):** the date the retro was actually held |
+| **Retro date** | Nov 15, 2026, held asynchronously: Nakul drafted the retro, and Dhanraj reviewed it and added the feedback |
 | **Attendees** | Nakul, Dhanraj |
 
 "What happened" is taken from our issues, PRs, commits, and Slack. Partner feedback is in each partner's own words.
@@ -65,8 +65,8 @@
 
 **Nakul → Dhanraj**
 
-**TO FILL (Nakul, in his own words):** what Dhanraj did that helped most this sprint, and one thing he could do differently.
+As Scrum Master, Dhanraj ran planning with a clear goal, order, and owners, and built the reminder job first so the other reminder features could reuse it. He ran a full QA pass on production, wrote the security suite covering every endpoint, and fixed `main` the same evening it went red. He also kept our docs honest and complete. One thing to do differently: keep the daily standups going even on busy days (none were posted Nov 10–12), and merge one PR at a time after updating from `main`. #52 merged a minute after #51 and turned `main` red.
 
 **Dhanraj → Nakul**
 
-**TO FILL (Dhanraj, in his own words):** what Nakul did that helped most this sprint, and one thing he could do differently.
+As Product Owner, Nakul kept the priorities clear, and he handled the risky database work carefully. When a migration had already run, he moved the backfill into a new migration instead of editing the old one, and he applied the production migration and admin role himself. He also took on the admin pages and the README. One thing to do differently: check the board before starting new work. Reusing #50 removed the E2E card, and the new public API overlapped with #26. Also, start the committed docs (#28) earlier so they finish inside the sprint.
