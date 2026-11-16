@@ -60,6 +60,7 @@ People with multiple credit cards often use the wrong card, forget recurring sta
 - **In-App Notification Center:** Automated daily reminder processing via Vercel Cron (`0 9 * * *`) that generates deduplicated in-app alerts across payment due dates, ending perks, rotating category activations, and expiring points.
 - **Admin Console & Catalog Management:** Dedicated admin dashboard (`/admin`) for creating cards, stores, and aliases, retiring cards safely without breaking existing user wallets, reviewing transactional audit logs, and promoting users via CLI.
 - **Public API (post-sprint):** Read-only endpoints for the demo catalog, categories, store search, and best-card rankings, documented with an interactive Swagger UI at `/api/docs`. Never returns user data.
+- **Frontend State:** each page keeps its data in React state and loads it through one shared API client (`apiFetch`, which also attaches the CSRF token); React Hook Form handles form state and validation.
 - **Responsive Liquid Glass UI:** iOS-style Liquid Glass aesthetic built with Tailwind CSS 4, offering adaptive layouts for mobile viewports (floating glass tab bar) and desktop screens (sticky glass top navigation and open tables).
 
 ---
@@ -68,7 +69,7 @@ People with multiple credit cards often use the wrong card, forget recurring sta
 
 | Layer            | Technology                                | Details                                                                                         |
 | ---------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Frontend**     | React 19, Vite 6, TypeScript 5.7          | Strict TypeScript (no `any`), TanStack Query 5, React Router 8, React Hook Form 7, Lucide React |
+| **Frontend**     | React 19, Vite 6, TypeScript 5.7          | Strict TypeScript (no `any`), React Router 8, React Hook Form 7, Lucide React |
 | **Styling**      | Tailwind CSS 4                            | Custom tokens derived from `docs/DESIGN.md`, responsive mobile & desktop layouts                |
 | **Backend**      | Node.js 24 LTS, Express 5, TypeScript 5.7 | Clean architecture: Routes → Controllers → Services → Domain (pure) + Repositories              |
 | **Shared**       | `@swipewise/shared` (TypeScript 5.7)      | Shared Zod 4 schemas, money integer math utilities, Luhn card-number validators                 |
@@ -674,6 +675,7 @@ Sprint 2, the final sprint, ended on **Nov 12, 2026**. The following was merged 
 - **Full E2E coverage and cleanup:** Playwright tests for the Sprint 2 flows, removing the duplicate bonus-tracker routes, and sentence-case table headers.
 - **Time zones:** every account currently uses the default time zone (America/Los_Angeles), so perk resets, due dates, and reminders are off for users elsewhere. Save the browser's time zone at sign-up and add a setting to change it.
 - **Shared navigation component:** the navigation bar is repeated in each page instead of living in one shared component.
+- **Live updates and shared state:** refresh the notification bell automatically and move API data into a shared cache (for example TanStack Query), so every screen updates together.
 - **One public API:** merge the two public API versions (`/api/public/v1/*` and `/api/v1/public/*`) into a single documented API.
 - **Fix the known limitations above:** bind the CSRF token to the user's session, and keep audit logs when an admin account is deleted.
 - **Dev dependency audit:** fix the known vulnerabilities in development tools.
