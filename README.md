@@ -13,29 +13,32 @@
 3. [Architecture](#architecture)
    - [System Architecture](#system-architecture)
    - [Database Schema (ERD)](#database-schema-erd)
-4. [Local setup](#local-setup)
+4. [API & OpenAPI Documentation](#api--openapi-documentation)
+   - [Interactive Swagger UI](#interactive-swagger-ui)
+   - [Public Endpoints](#public-endpoints)
+5. [Local setup](#local-setup)
    - [Prerequisites](#prerequisites)
    - [Installation & Configuration](#installation--configuration)
    - [Environment Variables](#environment-variables)
    - [Main NPM Scripts](#main-npm-scripts)
-5. [Testing & Quality Assurance](#testing--quality-assurance)
+6. [Testing & Quality Assurance](#testing--quality-assurance)
    - [Unit Testing](#unit-testing)
    - [Integration Testing](#integration-testing)
    - [End-to-End (E2E) Testing](#end-to-end-e2e-testing)
    - [Continuous Integration (CI) Pipeline](#continuous-integration-ci-pipeline)
-6. [Deployment & Operations](#deployment--operations)
+7. [Deployment & Operations](#deployment--operations)
    - [Hosting & Infrastructure](#hosting--infrastructure)
    - [Database Migrations & Seeding Strategy](#database-migrations--seeding-strategy)
    - [Admin User Promotion](#admin-user-promotion)
-7. [Security Architecture](#security-architecture)
+8. [Security Architecture](#security-architecture)
    - [Password Hashing (Argon2id)](#password-hashing-argon2id)
    - [Authentication & httpOnly Cookies](#authentication--httponly-cookies)
    - [Cross-Site Request Forgery (CSRF) Protection](#cross-site-request-forgery-csrf-protection)
    - [PostgreSQL-Backed Distributed Rate Limiting](#postgresql-backed-distributed-rate-limiting)
    - [Card-Number Guard (Luhn Validation)](#card-number-guard-luhn-validation)
    - [Transactional Audit Logging](#transactional-audit-logging)
-8. [Known Limitations](#known-limitations)
-9. [Contribution Log](#contribution-log)
+9. [Known Limitations](#known-limitations)
+10. [Contribution Log](#contribution-log)
 
 ---
 
@@ -351,6 +354,31 @@ erDiagram
         datetime reset_time
     }
 ```
+
+---
+
+## API & OpenAPI Documentation
+
+SwipeWise provides an interactive OpenAPI 3.0 specification generated dynamically from shared Zod schemas using `@asteasolutions/zod-to-openapi`.
+
+- **Interactive Swagger UI:** [`/api/docs`](http://localhost:3000/api/docs) — Interactive API explorer documenting both public routes and authenticated wallet endpoints.
+- **OpenAPI JSON Specification:** [`/api/openapi.json`](http://localhost:3000/api/openapi.json)
+- **Committed Specification:** [`docs/api/openapi.yaml`](docs/api/openapi.yaml) (validated via automated tests to prevent schema drift)
+
+### Public Endpoints
+
+SwipeWise exposes a dedicated public, read-only API under `/api/public/v1/*` that external applications can access without authentication or login cookies:
+
+- `GET /api/public/v1/cards` — Returns all active catalog credit cards (non-retired), including card name, issuer, annual fee, base rate, and reward rules.
+- `GET /api/public/v1/categories` — Returns the list of supported reward spend categories (`GROCERIES`, `DINING`, `GAS`, `TRAVEL`).
+- `GET /api/public/v1/stores?query=saf` — Searches store directory and aliases case-insensitively and maps merchants to their spend categories.
+- `GET /api/public/v1/best-card?category=GROCERIES&amountCents=10000` — Evaluates and ranks catalog credit cards by rewards earned for a purchase category and amount in integer cents, with an optional `cardIds` parameter to filter rankings to specific cards.
+
+#### Public API Controls & Security
+
+1. **Zero User Data:** Public endpoints never return user wallet or profile information, never read authentication cookies, and reject card-number input (via Luhn validation guard).
+2. **Dedicated Rate Limiting:** Backed by PostgreSQL (`PostgresRateLimitStore`), keyed by client IP, and isolated so public traffic never exhausts authenticated user limits.
+3. **CORS:** Open to any origin (`Access-Control-Allow-Origin: *`) specifically on `/api/public/*` routes, while internal `/api/v1/*` routes remain restricted to the frontend client origin.
 
 ---
 

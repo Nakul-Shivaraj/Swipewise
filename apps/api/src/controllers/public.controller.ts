@@ -5,7 +5,7 @@ import {
   recommendationsQuerySchema,
   storeSearchQuerySchema,
 } from "@swipewise/shared";
-import { PUBLIC_OPENAPI_SPEC } from "../public/openapi.js";
+import { generateOpenApiSpec } from "../public/openapi-generator.js";
 import {
   CatalogRepository,
   catalogRepo as defaultCatalogRepo,
@@ -50,6 +50,32 @@ export async function getPublicCardsHandler(
   }
 }
 
+export async function getPublicCategoriesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const queryCheck = publicEmptyQuerySchema.safeParse(req.query);
+    if (!queryCheck.success) {
+      res.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            queryCheck.error.issues[0]?.message || "Invalid query parameters.",
+        },
+      });
+      return;
+    }
+
+    const service = getPublicService(req);
+    const result = service.getCategories();
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getPublicRecommendationsHandler(
   req: Request,
   res: Response,
@@ -88,6 +114,19 @@ export async function getPublicRecommendationsHandler(
       return;
     }
 
+    let cardIds: string[] | undefined;
+    if (typeof req.query.cardIds === "string") {
+      cardIds = req.query.cardIds
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else if (Array.isArray(req.query.cardIds)) {
+      cardIds = req.query.cardIds
+        .flatMap((item) => (typeof item === "string" ? item.split(",") : []))
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
     const { category, amountCents } = parseResult.data;
     const nowProvider =
       (req.app.get("nowProvider") as (() => Date) | undefined) ||
@@ -97,6 +136,7 @@ export async function getPublicRecommendationsHandler(
       category,
       amountCents,
       nowProvider(),
+      cardIds,
     );
 
     res.status(200).json(result);
@@ -125,10 +165,10 @@ export async function searchPublicStoresHandler(
     }
 
     const rawQuery =
-      typeof req.query.q === "string"
-        ? req.query.q
-        : typeof req.query.query === "string"
-          ? req.query.query
+      typeof req.query.query === "string"
+        ? req.query.query
+        : typeof req.query.q === "string"
+          ? req.query.q
           : undefined;
 
     const parseResult = storeSearchQuerySchema.safeParse({
@@ -168,5 +208,5 @@ export function getPublicOpenApiHandler(req: Request, res: Response): void {
     return;
   }
 
-  res.status(200).json(PUBLIC_OPENAPI_SPEC);
+  res.status(200).json(generateOpenApiSpec());
 }

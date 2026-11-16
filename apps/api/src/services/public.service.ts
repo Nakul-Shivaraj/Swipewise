@@ -1,4 +1,5 @@
 import {
+  CATEGORIES,
   CategoryName,
   DEFAULT_PURCHASE_AMOUNT_CENTS,
   PublicRankedCardResult,
@@ -18,6 +19,10 @@ import {
 } from "../repositories/store.repository.js";
 import { StoreService } from "./store.service.js";
 
+export type PublicCatalogCardItem = CatalogCardItem & {
+  rewardRules: CatalogCardItem["rates"];
+};
+
 export class PublicService {
   private catalogRepo: CatalogRepository;
   private storeService: StoreService;
@@ -30,17 +35,33 @@ export class PublicService {
     this.storeService = new StoreService(storeRepo);
   }
 
-  async getCatalogCards(): Promise<{ cards: CatalogCardItem[] }> {
+  async getCatalogCards(): Promise<{ cards: PublicCatalogCardItem[] }> {
     const cards = await this.catalogRepo.findAllCards();
-    return { cards };
+    return {
+      cards: cards.map((c) => ({
+        ...c,
+        rewardRules: c.rates,
+      })),
+    };
+  }
+
+  getCategories(): { categories: CategoryName[] } {
+    return {
+      categories: [...CATEGORIES],
+    };
   }
 
   async getRecommendationsForCategory(
     category: CategoryName,
     amountCents: number = DEFAULT_PURCHASE_AMOUNT_CENTS,
     now: Date = new Date(),
+    cardIds?: string[],
   ): Promise<PublicRecommendationsResponse> {
-    const catalogCards = await this.catalogRepo.findAllCards();
+    let catalogCards = await this.catalogRepo.findAllCards();
+    if (cardIds && cardIds.length > 0) {
+      const allowed = new Set(cardIds);
+      catalogCards = catalogCards.filter((card) => allowed.has(card.id));
+    }
     const currentQuarter = resolveUserQuarter({ now, timeZone: "UTC" });
 
     const rankableCards: RankableCard[] = catalogCards.map((card) => ({
