@@ -1,18 +1,18 @@
 # SwipeWise contribution log
 
 Team: **Nakul Shivaraj** (`Nakul-Shivaraj`) and **Dhanraj Pandya** (`dhanraj176`).
-Changes reached `main` through pull requests reviewed by the partner, with CI, CodeQL, and end-to-end checks. The one exception was a small shared-package fix pushed directly to `main` in Sprint 1 (commit `35a1e52`). Each PR closes the issue in its row. PRs are grouped by the date they merged (Pacific time).
+Changes reached `main` through pull requests reviewed by the partner, with CI, CodeQL, and end-to-end checks. The one exception was a small shared-package fix pushed directly to `main` in Sprint 1 (commit `35a1e52`). Each PR closes the issue in its row. PRs are grouped by the sprint milestone of their issue, and anything merged after Sprint 2 ended (Nov 12) is listed separately. Sprint planning, standups, reviews, and retrospectives are in [docs/sprints/](sprints/).
 
 ## Roles
 
 | Sprint | Dates | Scrum Master | Product Owner |
 |---|---|---|---|
-| Sprint 1 | Nov 2 – Nov 4, 2026 | Nakul | — |
+| Sprint 1 | Oct 29 – Nov 5, 2026 | Nakul | Dhanraj |
 | Sprint 2 | Nov 9 – Nov 12, 2026 | Dhanraj | Nakul |
 
 Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 
-## Setup before Sprint 1 (Oct 28 – Oct 30)
+## Sprint 1: working deployed MVP (Oct 29 – Nov 5)
 
 | Owner | Issue | Work | PR |
 |---|---|---|---|
@@ -20,19 +20,14 @@ Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 | Nakul | #4 | Project structure, Prisma + Supabase setup | #17 |
 | Nakul | #7 | Mockups, DESIGN.md, Tailwind theme | #18 |
 | Nakul | #9 | Database schema and demo card data | #29 |
-| Dhanraj | #8 | AGENTS.md rules test (with vs. without rules) and trim to under 200 lines | #2 |
-| Dhanraj | — | Design documentation update | #3 |
-| Dhanraj | #5 | CI pipeline: GitHub Actions, CodeQL, Husky pre-commit, branch protection | #30 |
-
-## Sprint 1: working deployed MVP (Nov 2 – Nov 4)
-
-| Owner | Issue | Work | PR |
-|---|---|---|---|
 | Nakul | #10 | Sign up, log in, log out | #32 |
 | Nakul | #11 | Wallet: add, rename, remove cards | #40 |
 | Nakul | #33 | Bug fix: squished layout | #36 |
 | Nakul | #34 | Bug fix: local API dev server | #38 |
 | Nakul | #35 | Bug fix: auth error messages | #41 |
+| Dhanraj | #8 | AGENTS.md rules test (with vs. without rules) and trim to under 200 lines | #2 |
+| Dhanraj | — | Design documentation update | #3 |
+| Dhanraj | #5 | CI pipeline: GitHub Actions, CodeQL, Husky pre-commit, branch protection | #30 |
 | Dhanraj | #6 | Deployment on Vercel and `/api/health` | #31 |
 | Dhanraj | #12 | Best card by category (integer-cents ranking) | #37 |
 | Dhanraj | #13 | Store search with aliases | #39 |
@@ -52,28 +47,29 @@ Nakul owns the GitHub repo, the Vercel project, and the Supabase databases.
 | Nakul | #21 | Perks tracker | #49 |
 | Nakul | #22 | Sign-up bonus tracker | #51 |
 
-## After Sprint 2 (merged Nov 14)
+## After Sprint 2 (merged Nov 14–15)
 
 | Owner | Issue | Work | PR |
 |---|---|---|---|
 | Nakul | #25 | Admin pages and audit log (stretch) | #56 |
-| Dhanraj | #26 | Public API with OpenAPI docs (stretch) | #58 |
-| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log (Dhanraj); README, demo video (Nakul) | #53 + follow-up PRs |
+| Dhanraj | #26 | First public API with an OpenAPI JSON document (stretch) | #58 |
+| Nakul | #50 | Public API v1 with Swagger UI and an OpenAPI spec generated from the Zod schemas | #60 |
+| Both | #28 | Final docs and demo: architecture and database diagrams, contribution log (Dhanraj); README, demo video (Nakul) | #53, #57, #59, final docs PR |
 
 ## Process work
 
-- **Nakul (Sprint 1 Scrum Master, Sprint 2 Product Owner):** ran Sprint 1 planning and the Sprint 1 review, reviewed Dhanraj's PRs, and managed the Vercel project and Supabase databases.
-- **Dhanraj (Sprint 2 Scrum Master):** created the Sprint 2 issues with estimates and acceptance criteria, ran Sprint 2 planning, posted async standups in Slack on several days, reviewed Nakul's PRs, ran a full manual QA pass on production (Nov 9, all checks passed), and coordinated the `main` CI fix (#54).
+- **Nakul (Sprint 1 Scrum Master, Sprint 2 Product Owner):** created the Sprint 1 issues (Oct 30), ran the Sprint 1 planning meeting on Zoom (Oct 29) and posted its minutes, ran the Sprint 1 review, posted standups in Slack (3 in Sprint 1, plus catch-up standups on Nov 15), reviewed Dhanraj's PRs, and managed the Vercel project and Supabase databases.
+- **Dhanraj (Sprint 1 Product Owner, Sprint 2 Scrum Master):** created the Sprint 2 issues with estimates and acceptance criteria (Oct 30), ran Sprint 2 planning (Nov 9) and posted the plan in Slack, posted standups in Slack (4 in Sprint 1, plus catch-up standups on Nov 15), reviewed Nakul's PRs, ran a full manual QA pass on production (Nov 9, all checks passed), and coordinated the `main` CI fix (#54).
 
 ## Not delivered (future work)
 
 | Issue | Owner | Status |
 |---|---|---|
-| #50 Full E2E coverage and code cleanup | Dhanraj | Moved to backlog |
+| Full E2E coverage for the Sprint 2 flows and code cleanup (originally tracked in #50, which was later reused for the public API v1) | Dhanraj | Not started; listed as future work in the README |
 
-## Totals (merged PRs before this log was added)
+## Totals (merged PRs as of Nov 15, 2026, not counting the final docs PR)
 
-| Person | Before Sprint 1 | Sprint 1 | Sprint 2 | After Sprint 2 | Total |
-|---|---|---|---|---|---|
-| Dhanraj | 3 | 5 | 6 | 2 | 16 |
-| Nakul | 5 | 5 | 2 | 1 | 13 |
+| Person | Sprint 1 | Sprint 2 | After Sprint 2 | Total |
+|---|---|---|---|---|
+| Dhanraj | 8 | 6 | 3 | 17 |
+| Nakul | 10 | 2 | 3 | 15 |
