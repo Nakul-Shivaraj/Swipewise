@@ -90,6 +90,7 @@ describe("Public API & OpenAPI Specification (#50)", () => {
 
   const fakePrisma = {
     $executeRawUnsafe: async () => 0,
+    $queryRaw: async () => [{ "?column?": 1 }],
     $queryRawUnsafe: async (_sql: string, key: string, resetTime: Date) => {
       const entry = rateHits.get(key) ?? { hits: 0, resetTime };
       entry.hits += 1;
@@ -305,6 +306,60 @@ describe("Public API & OpenAPI Specification (#50)", () => {
         .set("Cookie", authCookie);
       expect(meRes.status).toBe(200);
     });
+
+    it("uses client IP from X-Forwarded-For so two different IPs get separate rate limits behind a proxy", async () => {
+      const localHits = new Map<string, { hits: number; resetTime: Date }>();
+      const localPrisma = {
+        $executeRawUnsafe: async () => 0,
+        $queryRawUnsafe: async (_sql: string, key: string, resetTime: Date) => {
+          const entry = localHits.get(key) ?? { hits: 0, resetTime };
+          entry.hits += 1;
+          localHits.set(key, entry);
+          return [{ total_hits: entry.hits, reset_time: entry.resetTime }];
+        },
+      } as unknown as NonNullable<Parameters<typeof createApp>[0]>["prisma"];
+
+      const limitedApp = createApp({
+        prisma: localPrisma,
+        publicRateLimitMax: 2,
+        nowProvider: () => fixedNow,
+      });
+
+      limitedApp.set("catalogRepo", {
+        findAllCards: async () => mockCatalogCards,
+      });
+
+      const ipA = "203.0.113.195";
+      const ipB = "198.51.100.42";
+
+      // IP A exhausts its limit
+      const resA1 = await request(limitedApp)
+        .get("/api/public/v1/categories")
+        .set("X-Forwarded-For", ipA);
+      expect(resA1.status).toBe(200);
+
+      const resA2 = await request(limitedApp)
+        .get("/api/public/v1/categories")
+        .set("X-Forwarded-For", ipA);
+      expect(resA2.status).toBe(200);
+
+      const resA3 = await request(limitedApp)
+        .get("/api/public/v1/categories")
+        .set("X-Forwarded-For", ipA);
+      expect(resA3.status).toBe(429);
+      expect(resA3.body.error?.code).toBe("RATE_LIMIT_EXCEEDED");
+
+      // IP B still has its full limit available
+      const resB1 = await request(limitedApp)
+        .get("/api/public/v1/categories")
+        .set("X-Forwarded-For", ipB);
+      expect(resB1.status).toBe(200);
+
+      const resB2 = await request(limitedApp)
+        .get("/api/public/v1/categories")
+        .set("X-Forwarded-For", ipB);
+      expect(resB2.status).toBe(200);
+    });
   });
 
   describe("AC3: CORS works for /api/public/* only", () => {
@@ -341,6 +396,19 @@ describe("Public API & OpenAPI Specification (#50)", () => {
       const res = await request(app).get("/api/docs/");
       expect(res.status).toBe(200);
       expect(res.text).toContain("swagger-ui");
+    });
+
+    it("enforces Content Security Policy on the rest of the app while allowing Swagger UI at /api/docs", async () => {
+      const docsRes = await request(app).get("/api/docs/");
+      expect(docsRes.status).toBe(200);
+      expect(docsRes.headers["content-security-policy"]).toBeUndefined();
+
+      const healthRes = await request(app).get("/api/health");
+      expect(healthRes.status).toBe(200);
+      expect(healthRes.headers["content-security-policy"]).toBeDefined();
+      expect(healthRes.headers["content-security-policy"]).toContain(
+        "default-src 'self'",
+      );
     });
 
     it("serves OpenAPI JSON specification at /api/openapi.json", async () => {

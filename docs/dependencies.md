@@ -47,6 +47,7 @@ npm workspaces: `apps/web` (frontend), `apps/api` (backend), `packages/shared` (
 | pino, pino-http                                           | Logging, with passwords and tokens redacted                            |
 | luxon, @types/luxon                                       | All date, period, and time-zone logic                                  |
 | @asteasolutions/zod-to-openapi, swagger-ui-express        | OpenAPI docs from Zod schemas                                          |
+| yaml (2.9.1)                                              | Serializing OpenAPI YAML specification file                            |
 | node-cron                                                 | Daily reminder job (Sprint 2; may be replaced by the host's scheduler) |
 
 ## Testing

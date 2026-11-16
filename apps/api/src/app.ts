@@ -109,7 +109,17 @@ export function createApp(options: AppOptions = {}) {
     app.set("nowProvider", options.nowProvider);
   }
 
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Trust first proxy hop (e.g. Vercel) so req.ip and rate limiters use client IP
+  app.set("trust proxy", 1);
+
+  // Scoped Content Security Policy: enabled for app, disabled for /api/docs Swagger UI
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api/docs") || req.path === "/api/docs") {
+      helmet({ contentSecurityPolicy: false })(req, res, next);
+    } else {
+      helmet()(req, res, next);
+    }
+  });
   const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
   app.use((req: Request, res: Response, next: NextFunction) => {
     const isPublic =
