@@ -386,7 +386,7 @@ SwipeWise exposes a dedicated public, read-only API under `/api/public/v1/*` tha
 
 ### Earlier Public Endpoints (#26)
 
-The first version of the public API (#26, PR #58) is still live under `/api/v1/public/*`, with the same rules: no login, no user data, card-number input rejected with `400`, and the same dedicated rate limit. It has its own OpenAPI document at `/api/v1/public/openapi.json`. Merging the two versions is listed under [Future Work](#future-work).
+**Deprecated.** The first version of the public API (#26, PR #58) is still live under `/api/v1/public/*` for compatibility; new integrations should use the v1 endpoints above. It follows the same rules: no login, no user data, card-number input rejected with `400`, and the same dedicated rate limit. It has its own OpenAPI document at `/api/v1/public/openapi.json`. Merging the two versions is listed under [Future Work](#future-work).
 
 | Endpoint                             | Returns                                                                 |
 | ------------------------------------ | ----------------------------------------------------------------------- |
@@ -653,8 +653,10 @@ SwipeWise explicitly never stores full card numbers:
 
 ### Sprints
 
-- **Sprint 1 (Nov 2–4, 2026):** deployed MVP: sign up, wallet, store search, and best card by category.
+- **Sprint 1 (Oct 29 – Nov 5, 2026):** deployed MVP: sign up, wallet, store search, and best card by category.
 - **Sprint 2 (Nov 9–12, 2026):** daily reminders and in-app notifications, payment due reminders, perks and sign-up bonus trackers, points expiry alerts, rotating categories, and the security test suite.
+
+Planning, standups, reviews, and retrospectives for each sprint are in [docs/sprints/](docs/sprints/).
 
 ### Post-sprint work
 
@@ -668,6 +670,8 @@ Sprint 2, the final sprint, ended on **Nov 12, 2026**. The following was merged 
 ### Future Work
 
 - **Full E2E coverage and cleanup:** Playwright tests for the Sprint 2 flows, removing the duplicate bonus-tracker routes, and sentence-case table headers.
+- **Time zones:** every account currently uses the default time zone (America/Los_Angeles), so perk resets, due dates, and reminders are off for users elsewhere. Save the browser's time zone at sign-up and add a setting to change it.
+- **Shared navigation component:** the navigation bar is repeated in each page instead of living in one shared component.
 - **One public API:** merge the two public API versions (`/api/public/v1/*` and `/api/v1/public/*`) into a single documented API.
 - **Fix the known limitations above:** bind the CSRF token to the user's session, and keep audit logs when an admin account is deleted.
 - **Dev dependency audit:** fix the known vulnerabilities in development tools.
@@ -678,38 +682,4 @@ Sprint 2, the final sprint, ended on **Nov 12, 2026**. The following was merged 
 
 ## Contribution Log
 
-Built by Nakul Shivaraj and Dhanraj Pandya for CS 6983 AI Coding, Project 2, at Northeastern University (Oakland). The full log, grouped by sprint with roles, process work, and totals, is in [docs/contributions.md](docs/contributions.md). Merged pull requests:
-
-| Issue   | PR       | Contributor    | Branch                                     | Description                                                                                                           |
-| ------- | -------- | -------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| **#8**  | #2       | Dhanraj Pandya | `docs/agents-md` | AGENTS.md rules test (with vs. without rules) and trim to under 200 lines |
-| **#5**  | #3       | Dhanraj Pandya | `docs/5-agents-documentation`              | Initial project design documentation and AGENTS rules                                                                 |
-| **#4**  | #17      | Nakul Shivaraj | `chore/4-prisma-env`                       | Configure Prisma with Supabase, npm db scripts, env examples, and setup docs                                          |
-| **#8**  | #15, #16 | Nakul Shivaraj | `docs/8-agents-rules`, `docs/8-agents-v05` | Agent rules and iterative AGENTS.md v0.5 improvements                                                                 |
-| **#7**  | #18      | Nakul Shivaraj | `docs/7-tailwind-theme`                    | Tailwind theme generation from DESIGN.md and component tokens                                                         |
-| **#9**  | #29      | Nakul Shivaraj | `feature/9-db-schema`                      | Prisma database schema, initial migrations, and demo seed data                                                        |
-| **#5**  | #30      | Dhanraj Pandya | `chore/5-ci-pipeline`                      | GitHub Actions CI workflow, CodeQL security scanning, and Husky pre-commit hook                                       |
-| **#6**  | #31      | Dhanraj Pandya | `chore/6-deploy-starter`                   | Empty starter deployment on Vercel and `/api/health` endpoint                                                         |
-| **#10** | #32      | Nakul Shivaraj | `feature/10-auth`                          | User authentication, Argon2id hashing, httpOnly JWT cookies, Postgres rate limiting, and card-number guard            |
-| **#33** | #36      | Nakul Shivaraj | `fix/33-squished-layout`                   | Fix squished layout by restoring Tailwind width tokens                                                                |
-| **#12** | #37      | Dhanraj Pandya | `feature/12-best-card-by-category`         | Best card recommendation engine by purchase category and reward math                                                  |
-| **#34** | #38      | Nakul Shivaraj | `fix/34-local-api-dev`                     | Fix local API dev with `tsx watch` and unified `scripts/dev.js` runner                                                |
-| **#13** | #39      | Dhanraj Pandya | `feature/13-store-search`                  | Store search with alias mapping and best card recommendation                                                          |
-| **#11** | #40      | Nakul Shivaraj | `feature/11-wallet`                        | Wallet management, card catalog, wallet UI, and double-submit CSRF protection                                         |
-| **#35** | #41      | Nakul Shivaraj | `fix/35-auth-error-messages`               | Improve auth error messaging and CSRF retry handling on 403                                                           |
-| **#42** | #43      | Dhanraj Pandya | `fix/42-auth-rate-limit-scope`             | Scope strict auth rate limiter exclusively to `/signup` and `/login`                                                  |
-| **#14** | #44      | Dhanraj Pandya | `chore/14-e2e-sprint-1`                    | Playwright end-to-end test suite for Sprint 1 core user flows                                                         |
-| **#19** | #45      | Dhanraj Pandya | `feature/19-reminders-and-notifications`   | Daily reminder background job, notification registry, and in-app notifications                                        |
-| **#20** | #46      | Dhanraj Pandya | `feature/20-payment-due-reminders`         | Payment due date reminders, autopay settings, and paid cycle tracking                                                 |
-| **#24** | #47      | Dhanraj Pandya | `feature/24-points-expiry-alerts`          | Reward program points balances and points expiry alerts                                                               |
-| **#23** | #48      | Dhanraj Pandya | `feature/23-rotating-categories`           | Quarterly 5% rotating bonus categories and quarter activation tracking                                                |
-| **#21** | #49      | Nakul Shivaraj | `feature/21-perks-tracker`                 | Recurring perks tracker, period date math, perk usage logging, and 5-day expiration reminders                         |
-| **#22** | #51      | Nakul Shivaraj | `feature/22-bonus-tracker`                 | Sign-up bonus welcome tracker, bonus offer snapshots, and spend entries                                               |
-| **#27** | #52      | Dhanraj Pandya | `test/27-security-suite`                   | Security test suite verifying multi-tenant isolation and card-number guard rejection across all endpoints             |
-| **#28** | #53      | Dhanraj Pandya | `docs/28-architecture-diagrams`            | System architecture and database ER diagrams in `docs/architecture.md`                                                |
-| **#54** | #55      | Dhanraj Pandya | `fix/54-security-coverage-bonus`           | Multi-tenant security test coverage for #22 bonus tracker and spend entries                                           |
-| **#25** | #56      | Nakul Shivaraj | `feature/25-admin-pages`                   | Admin console, role middleware, transactional audit logging, card retirement, and `admin:promote` script              |
-| **#28** | #57      | Nakul Shivaraj | `docs/28-final-docs`                       | Comprehensive project README documentation (architecture, setup, security, deployment, limitations, contribution log) |
-| **#26** | #58      | Dhanraj Pandya | `feature/26-public-api`                    | First public read-only API (catalog cards, best-card rankings, store search) with an OpenAPI 3 document and a dedicated 60/min rate limit |
-| **#28** | #59      | Dhanraj Pandya | `docs/28-contribution-log`                 | Contribution log by sprint in `docs/contributions.md` |
-| **#50** | #60      | Nakul Shivaraj | `feature/50-public-api`                    | Public API v1 with Swagger UI, OpenAPI spec generated from Zod schemas, scoped CORS and CSP, and trust proxy for per-visitor rate limits |
+Built by Nakul Shivaraj and Dhanraj Pandya for CS 6983 AI Coding, Project 2, at Northeastern University (Oakland). The full log, with every merged pull request grouped by sprint, roles, process work, and totals, is in [docs/contributions.md](docs/contributions.md).
